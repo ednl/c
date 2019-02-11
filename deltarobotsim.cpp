@@ -75,7 +75,6 @@ int main(void)
 	int i;
 
 	printf("x,y,z,a0,a1,a2\n");
-	printf("---------------------\n");
 
 	positie.x = -20.0;
 	while (positie.x <= 20.0) {
@@ -121,13 +120,15 @@ int main(void)
  */
 double sinus(int graden)
 {
+	while (graden >= 360)
+		graden -= 360;
 	if (graden >= 0 && graden <= 90)
-		return sinustabel[graden];    // 1e kwadrant
+		return sinustabel[graden];        // 1e kwadrant
 	if (graden >= -90 && graden < 0)
-		return -sinustabel[-graden];  // 4e kwadrant, oneven functie
-	if (graden > 90)
-		return 1.0;
-	return -1.0;
+		return -sinustabel[-graden];      // 4e kwadrant, oneven functie
+	if (graden >= 90 && graden <= 180)
+		return sinustabel[180 - graden];  // 2e kwadrant
+	return -1.0;                          // -90 of kleiner
 }
 
 /**
@@ -137,21 +138,25 @@ double sinus(int graden)
  */
 double cosinus(int graden)
 {
+	while (graden >= 360)
+		graden -= 360;
 	if (graden >= 0 && graden <= 90)
-		return sinustabel[90 - graden];  // 1e kwadrant = spiegel sinus 1e kwadrant
+		return sinustabel[90 - graden];   // 1e kwadrant = spiegel sinus 1e kwadrant
 	if (graden >= -90 && graden < 0)
-		return sinustabel[90 + graden];  // 4e kwadrant = sinus 1e kwadrant
-	return 0.0;
+		return sinustabel[90 + graden];   // 4e kwadrant = sinus 1e kwadrant
+	if (graden >= 90 && graden <= 180)
+		return -sinustabel[graden - 90];  // 2e kwadrant
+	return 0.0;                           // -90 of kleiner
 }
 
 /**
- * Bereken lengte van arm2 voor één servo
+ * Bereken lengte (in het kwadraat) van arm2 voor één servo
  *   param n: servonummer 0/1/2
  *   param a: servohoek in graden
  *   param p: doelpositie (x,y,z) van de deltarobot
  *   return: lengte kwadraat van de arm2 vector
  */
-double armlengte(int n, int a, punt p)
+double arm2lengte(int n, int a, punt p)
 {
 	static const double k0 = 0.5 * (L_TRI1 - L_TRI2);          // (1/2) . (T1 - T2)
 	static const double k1 = WORTEL3 * (L_TRI1 - L_TRI2) / 3;  // (1/3) . sqrt(3) . (T1 - T2)
@@ -181,32 +186,33 @@ double armlengte(int n, int a, punt p)
 
 /**
  * Benader de servohoeken
- *   param p: deltarobot positie P_doel (x,y,z)
- *   return: een array van drie hoeken voor de drie servo's
+ *   param oudehoeken: struct van array van 3 hoeken als beginstand
+ *   param doel: doelpositie (x,y,z) van de deltarobot
+ *   return: struct van array van 3 hoeken voor de 3 robotservo's
  */
-driehoek zoekhoeken(punt p)
+driehoek zoekhoeken(driehoek oudehoeken, punt doel)
 {
-	driehoek test = robothoek;
-	double len, vorige;
+	driehoek nieuwehoeken = oudehoeken;
+	double len2, vorige;  // lengte kwadraat van arm2, vorige waarde onthouden
 	int i;
 
 	for (i = 0; i < 3; ++i) {
-		len = armlengte(i, test.a[i], p);
-		if (len > arm2) {
-			while (len > arm2) {
-				vorige = len;
-				len = armlengte(i, ++(test.a[i]), p);
+		len2 = arm2lengte(i, nieuwehoeken.a[i], doel);
+		if (len2 > arm2) {
+			while (len2 > arm2) {
+				vorige = len2;
+				len2 = arm2lengte(i, ++(nieuwehoeken.a[i]), doel);
 			}
-			if (vorige - arm2 < arm2 - len)
-				test.a[i]--;
-		} else if (len < arm2) {
-			while (len < arm2) {
-				vorige = len;
-				len = armlengte(i, --(test.a[i]), p);
+			if (vorige - arm2 < arm2 - len2)
+				nieuwehoeken.a[i]--;
+		} else if (len2 < arm2) {
+			while (len2 < arm2) {
+				vorige = len2;
+				len2 = arm2lengte(i, --(nieuwehoeken.a[i]), doel);
 			}
-			if (arm2 - vorige < len - arm2)
-				test.a[i]++;
+			if (arm2 - vorige < len2 - arm2)
+				nieuwehoeken.a[i]++;
 		}
 	}
-	return test;
+	return nieuwehoeken;
 }
