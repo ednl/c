@@ -12,6 +12,8 @@
  *   L_ARM2 = lengte (mm) van de bovenste arm (die aan de topplaat vastzit)
  * Wiskundige constanten
  *   WORTEL3 = sqrt(3)
+ * Servo waardes (T-hoog)
+ *   minimum, maximum, horizontaal, verticaal
  */
 #define L_TRI1   175
 #define L_TRI2    50  // of ~49.5; nog een keer meten!
@@ -19,9 +21,23 @@
 #define L_ARM2   202
 #define WORTEL3    1.73205
 
+#define SERVO0_MIN 620
+#define SERVO0_MAX 2200
+#define SERVO0_HOR 1700
+#define SERVO0_VER 700
+
+#define SERVO1_MIN 700
+#define SERVO1_MAX 2300
+#define SERVO1_HOR 1700
+#define SERVO1_VER 780
+
+#define SERVO2_MIN 660
+#define SERVO2_MAX 2350
+#define SERVO2_HOR 1700
+#define SERVO2_VER 800
+
 // ********** Globale constanten voor snelle berekening *********************************
 
-static const double arm2 = L_ARM2 * L_ARM2;       // A2 . A2 = inproduct van arm2 vector
 static const double sinustabel[91] = {            // sinus van 0 t/m 90 graden
 	0.0     ,0.017452,0.034899,0.052336,0.069756,0.087156,0.104528,0.121869,0.139173,0.156434,
 	0.173648,0.190809,0.207912,0.224951,0.241922,0.258819,0.275637,0.292372,0.309017,0.325568,
@@ -42,36 +58,44 @@ typedef struct {
 	double x, y, z;
 } punt;
 
-// de drie hoeken van de deltarobotservo's
-typedef struct {
-	int a[3];
-} driehoek;
-
 // kenmerken van alle aangesloten servo's
 typedef struct {
-	int pin;   // Arduino pinnummer
-	int pwm;   // T-hoog van het PWM-signaal
+	int pin;        // Arduino pinnummer
+	int hoek;       // hoek van arm1 met het xy-vlak
+	int pwm;        // T-hoog van het PWM-signaal
+	int t_min;      // T-hoog minimum
+	int t_max;      // T-hoog maximum
+	int t_nul;      // basis voor T-hoog berekening
+	double t_rico;  // factor voor T-hoog berekening
 } servoinfo;
 
-driehoek robothoek = { 0, 0, 0 };
-servoinfo myservo[3] = {
-	{ .pin =  9, .pwm = 1500 },
-	{ .pin = 10, .pwm = 1500 },
-	{ .pin = 11, .pwm = 1500 }
+servoinfo robot[3] = {
+	{ .pin = 9,
+	  .hoek = 0, .hoekmin = -30, .hoekmax = 120,
+	  .pwm = SERVO0_HOR, .pwmmin = SERVO0_MIN, .pwmmax = SERVO0_MAX,
+	  .pwmnul = SERVO0_HOR, .pwmrico = (SERVO0_HOR - SERVO0_VER) / 90.0 },
+	{ .pin = 10,
+	  .hoek = 0, .hoekmin = -30, .hoekmax = 120,
+	  .pwm = SERVO1_HOR, .pwmmin = SERVO1_MIN, .pwmmax = SERVO1_MAX,
+	  .pwmnul = SERVO1_HOR, .pwmrico = (SERVO1_HOR - SERVO1_VER) / 90.0 },
+	{ .pin = 11,
+	  .hoek = 0, .hoekmin = -30, .hoekmax = 120,
+	  .pwm = SERVO2_HOR, .pwmmin = SERVO2_MIN, .pwmmax = SERVO2_MAX,
+	  .pwmnul = SERVO2_HOR, .pwmrico = (SERVO2_HOR - SERVO2_VER) / 90.0 }
 };
 
 // ********** Functie prototypes ********************************************************
 
 double sinus(int graden);
 double cosinus(int graden);
-driehoek zoekhoeken(punt p);
+double arm2lengte(int n, int a, punt p);
+void zoekhoeken(punt doel);
 
 // ********** Main **********************************************************************
 
 int main(void)
 {
 	punt positie;
-	driehoek benadering;
 	int i;
 
 	printf("x,y,z,a0,a1,a2\n");
@@ -115,46 +139,54 @@ int main(void)
 
 /**
  * Sinus via opzoektabel
- *   param graden: hoek in graden van -90 tot en met 90
+ *   param graden: hoek in graden
  *   return: sinus van de hoek
  */
 double sinus(int graden)
 {
-	while (graden >= 360)
+	// range = [-179 .. +180]
+	while (graden <= -180)
+		graden += 360;
+	while (graden > 180)
 		graden -= 360;
-	if (graden >= 0 && graden <= 90)
-		return sinustabel[graden];        // 1e kwadrant
-	if (graden >= -90 && graden < 0)
-		return -sinustabel[-graden];      // 4e kwadrant, oneven functie
-	if (graden >= 90 && graden <= 180)
+
+	if (graden >= 90)
 		return sinustabel[180 - graden];  // 2e kwadrant
-	return -1.0;                          // -90 of kleiner
+	if (graden >= 0)
+		return sinustabel[graden];        // 1e kwadrant
+	if (graden >= -90)
+		return -sinustabel[-graden];      // 4e kwadrant
+	return -sinustabel[180 + graden];     // 3e kwadrant
 }
 
 /**
  * Cosinus via opzoektabel
- *   param graden: hoek in graden van -90 tot en met 90
+ *   param graden: hoek in graden
  *   return: cosinus van de hoek
  */
 double cosinus(int graden)
 {
-	while (graden >= 360)
+	// range = [-179 .. +180]
+	while (graden <= -180)
+		graden += 360;
+	while (graden > 180)
 		graden -= 360;
-	if (graden >= 0 && graden <= 90)
-		return sinustabel[90 - graden];   // 1e kwadrant = spiegel sinus 1e kwadrant
-	if (graden >= -90 && graden < 0)
+
+	if (graden >= 90)
+		return -sinustabel[graden - 90];  // 2e kwadrant = sinus 3e kwadrant
+	if (graden >= 0)
+		return sinustabel[90 - graden];   // 1e kwadrant = sinus 2e kwadrant
+	if (graden >= -90)
 		return sinustabel[90 + graden];   // 4e kwadrant = sinus 1e kwadrant
-	if (graden >= 90 && graden <= 180)
-		return -sinustabel[graden - 90];  // 2e kwadrant
-	return 0.0;                           // -90 of kleiner
+	return -sinustabel[-graden - 90];     // 3e kwadrant = sinus 4e kwadrant
 }
 
 /**
- * Bereken lengte (in het kwadraat) van arm2 voor één servo
+ * Bereken afwijking in lengte (in het kwadraat) van arm2 voor één servo
  *   param n: servonummer 0/1/2
  *   param a: servohoek in graden
  *   param p: doelpositie (x,y,z) van de deltarobot
- *   return: lengte kwadraat van de arm2 vector
+ *   return: afwijking in lengte (kwadraat) van de arm2 vector
  */
 double arm2lengte(int n, int a, punt p)
 {
@@ -163,9 +195,9 @@ double arm2lengte(int n, int a, punt p)
 	static const double k2 = WORTEL3 * (L_TRI1 - L_TRI2) / 6;  // (1/6) . sqrt(3) . (T1 - T2)
 	static const double m0 = 0.5 * L_ARM1;                     // (1/2) . A1
 	static const double m1 = 0.5 * WORTEL3 * L_ARM1;           // (1/2) . sqrt(3) . A1
+	static const double m2 = L_ARM2 * L_ARM2;                  // A2 . A2 = inproduct van arm2 vector
 
 	double cosa = cosinus(a);
-
 	switch (n) {
 		case 0:
 			p.x -= k1 + L_ARM1 * cosa;
@@ -181,38 +213,61 @@ double arm2lengte(int n, int a, punt p)
 	}
 	p.z -= L_ARM1 * sinus(a);
 
-	return (p.x * p.x + p.y * p.y + p.z * p.z);
+	return p.x * p.x + p.y * p.y + p.z * p.z - m2;
 }
 
 /**
- * Benader de servohoeken
- *   param oudehoeken: struct van array van 3 hoeken als beginstand
+ * Benader de servohoeken en bijbehorende T-hoog
  *   param doel: doelpositie (x,y,z) van de deltarobot
- *   return: struct van array van 3 hoeken voor de 3 robotservo's
  */
-driehoek zoekhoeken(driehoek oudehoeken, punt doel)
+void zoekhoeken(punt doel)
 {
-	driehoek nieuwehoeken = oudehoeken;
-	double len2, vorige;  // lengte kwadraat van arm2, vorige waarde onthouden
-	int i;
+	static int richting[3] = { 1, 1, 1 };
+	int testhoek;
+	double len0, len1, diff;  // benadering
 
-	for (i = 0; i < 3; ++i) {
-		len2 = arm2lengte(i, nieuwehoeken.a[i], doel);
-		if (len2 > arm2) {
-			while (len2 > arm2) {
-				vorige = len2;
-				len2 = arm2lengte(i, ++(nieuwehoeken.a[i]), doel);
+	for (int i = 0; i < 3; ++i) {
+		testhoek = robot[i].hoek;
+
+		len0 = arm2lengte(i, testhoek, doel);
+		testhoek += richting[i];
+		len1 = arm2lengte(i, testhoek, doel);
+
+		if ((*(((byte*) &len0) + 3) & 0x80) ^ (*(((byte*) &len1) + 3) & 0x80)) {
+
+			// signbit verschillend => 1 van de 2 is beste benadering
+			*(((byte*) &len0) + 3) &= 0x7f;  // reset signbit = abs()
+			*(((byte*) &len1) + 3) &= 0x7f;
+			if (len0 < len1)
+				testhoek -= richting[i];  // len0 was betere benadering
+
+		} else {
+
+			// signbit hetzelfde => verder op zoek
+			if (*(((byte*) &len0) + 3) & 0x80)
+				diff = len0 - len1;  // allebei negatief
+			else
+				diff = len1 - len0;  // allebei positief
+			if (diff > 0) {
+				// we gaan de verkeerde kant op
+				testhoek -= richting[i];     // terug naar beginwaarde
+				richting[i] = -richting[i];  // vanaf nu de andere kant op
+				len1 = len0;                 // len0 was beter
 			}
-			if (vorige - arm2 < arm2 - len2)
-				nieuwehoeken.a[i]--;
-		} else if (len2 < arm2) {
-			while (len2 < arm2) {
-				vorige = len2;
-				len2 = arm2lengte(i, --(nieuwehoeken.a[i]), doel);
-			}
-			if (arm2 - vorige < len2 - arm2)
-				nieuwehoeken.a[i]++;
+
+			do {
+				len0 = len1;                           // vorige onthouden
+				testhoek += richting[i];               // nieuwe hoek
+				len1 = arm2lengte(i, testhoek, doel);  // nieuwe benadering van arm2
+			} while (!((*(((byte*) &len0) + 3) & 0x80) ^ (*(((byte*) &len1) + 3) & 0x80)));
+
+			// signbit verschillend => 1 van de 2 is beste benadering
+			*(((byte*) &len0) + 3) &= 0x7f;  // reset signbit = abs()
+			*(((byte*) &len1) + 3) &= 0x7f;
+			if (len0 < len1)
+				testhoek -= richting[i];  // vorige was betere benadering
 		}
+		robot[i].hoek = testhoek;
+		robot[i].pwm = robot[i].pwmnul - (robot[i].pwmrico * testhoek);
 	}
-	return nieuwehoeken;
 }
