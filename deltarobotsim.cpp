@@ -103,7 +103,7 @@ float arm2lengte(byte n, int a, punt p);
 bool doornulheen(float f0, float f1);
 bool eersteiskleiner(float f0, float f1);
 void zoekhoeken(punt pos);
-void lijn(punt startpunt, punt eindpunt, unsigned int mmperstap);
+void lijn(punt startpunt, punt eindpunt, unsigned int mmperstap, bool eerstnaarstart);
 //void cirkel(punt startpunt, punt middelpunt, char richting, unsigned int mmperstap);
 //void boog(punt startpunt, punt eindpunt, punt middelpunt, char richting, unsigned int mmperstap);
 
@@ -118,13 +118,13 @@ int main(void)
 
 	printf("Vierkant:\n");
 	printf("\nx,y,z,a0,a1,a2\n");
-	lijn(p0, p1, 2);
+	lijn(p0, p1, 5, true);
 	printf("\nx,y,z,a0,a1,a2\n");
-	lijn(p1, p2, 2);
+	lijn(p1, p2, 5, false);
 	printf("\nx,y,z,a0,a1,a2\n");
-	lijn(p2, p3, 2);
+	lijn(p2, p3, 5, false);
 	printf("\nx,y,z,a0,a1,a2\n");
-	lijn(p3, p0, 2);
+	lijn(p3, p0, 5, false);
 
 	return 0;
 }
@@ -344,7 +344,7 @@ void zoekhoeken(punt pos)
  * Beweeg de Deltarobot in een rechte lijn van A naar B
  * param mmperstap: verplaatsing in mm per stap in de 3D-beweging (0 => in 1 keer)
  */
-void lijn(punt startpunt, punt eindpunt, unsigned int mmperstap)
+void lijn(punt startpunt, punt eindpunt, unsigned int mmperstap, bool eerstnaarstart)
 {
 	float dx, dy, dz;
 	unsigned int i, stappen = 0;
@@ -362,7 +362,8 @@ void lijn(punt startpunt, punt eindpunt, unsigned int mmperstap)
 		}
 	}
 
-	zoekhoeken(startpunt);  // begin hier
+	if (eerstnaarstart)
+		zoekhoeken(startpunt);  // begin hier
 	for (i = 1; i < stappen; ++i) {  // vanaf 1 want neem alleen tussenpunten
 		startpunt.x += dx;
 		startpunt.y += dy;
