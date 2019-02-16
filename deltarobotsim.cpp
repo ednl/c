@@ -342,33 +342,37 @@ void zoekhoeken(punt pos)
 
 /**
  * Beweeg de Deltarobot in een rechte lijn van A naar B
- * param mmperstap: verplaatsing in mm per stap in de 3D-beweging (0 => in 1 keer)
+ * param mmperstap: verplaatsing in mm per stap in de 3D-beweging (0 = in 1 keer)
  */
 void lijn(punt startpunt, punt eindpunt, unsigned int mmperstap, bool eerstnaarstart)
 {
 	float dx, dy, dz;
-	unsigned int i, stappen = 0;
+	unsigned int stappen = 0;
 
 	if (mmperstap) {
 		dx = eindpunt.x - startpunt.x;
 		dy = eindpunt.y - startpunt.y;
 		dz = eindpunt.z - startpunt.z;
 		stappen = 0.5 + sqrt(dx*dx + dy*dy + dz*dz) / mmperstap;
-		if (stappen > 1) {
-			// Verplaatsing per stap in x/y/z-richting
-			dx /= stappen;
-			dy /= stappen;
-			dz /= stappen;
+		if (stappen) {
+			if (stappen != 1) {
+				// Verplaatsing per stap in x/y/z-richting
+				dx /= stappen;
+				dy /= stappen;
+				dz /= stappen;
+			}
+			--stappen;  // neem alleen tussenpunten, dus 1 minder dan aantal stappen
 		}
 	}
 
 	if (eerstnaarstart)
 		zoekhoeken(startpunt);  // begin hier
-	for (i = 1; i < stappen; ++i) {  // vanaf 1 want neem alleen tussenpunten
+	while (stappen) {
 		startpunt.x += dx;
 		startpunt.y += dy;
 		startpunt.z += dz;
 		zoekhoeken(startpunt);
+		--stappen;
 	}
 	zoekhoeken(eindpunt);  // eindig hier
 }
