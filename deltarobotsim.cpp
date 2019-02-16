@@ -1,138 +1,132 @@
 // ********** Bibliotheken **************************************************************
 
 #include <stdio.h>  // printf
+#include <math.h>   // sqrt
 
 // ********** Definities ****************************************************************
 
-/**
- * Deltarobot afmetingen
- *   L_TRI1 = lengte (mm) van driehoekzijde van de basisplaat (die stil staat)
- *   L_TRI2 = lengte (mm) van driehoekzijde van de topplaat (die beweegt)
- *   L_ARM1 = lengte (mm) van de onderste arm (die aan de servo vastzit)
- *   L_ARM2 = lengte (mm) van de bovenste arm (die aan de topplaat vastzit)
- * Wiskundige constanten
- *   WORTEL3 = sqrt(3)
- * Servo waardes (T-hoog)
- *   minimum, maximum, horizontaal, verticaal
- */
-#define L_TRI1   175
-#define L_TRI2    50  // of ~49.5; nog een keer meten!
-#define L_ARM1    50
-#define L_ARM2   202
-#define WORTEL3    1.73205
+#define DEBUG 1  // print tussenstappen ja (1) of nee (0)
 
-#define SERVO0_MIN 620
+// Deltarobot afmetingen
+#define L_TRI1 175  // lengte (mm) van zijde van basisplaat (die stil staat)
+#define L_TRI2  50  // lengte (mm) van zijde van topplaat (die beweegt)
+#define L_ARM1  50  // lengte (mm) van onderste arm (die aan servo vastzit)
+#define L_ARM2 202  // lengte (mm) van bovenste arm (die aan topplaat vastzit)
+
+// Servowaarde (T-hoog) minimum, maximum, horizontaal, verticaal
+#define SERVO0_MIN  620
 #define SERVO0_MAX 2200
 #define SERVO0_HOR 1700
-#define SERVO0_VER 700
+#define SERVO0_VER  700
 
-#define SERVO1_MIN 700
+#define SERVO1_MIN  700
 #define SERVO1_MAX 2300
 #define SERVO1_HOR 1700
-#define SERVO1_VER 780
+#define SERVO1_VER  780
 
-#define SERVO2_MIN 660
+#define SERVO2_MIN  660
 #define SERVO2_MAX 2350
 #define SERVO2_HOR 1700
-#define SERVO2_VER 800
+#define SERVO2_VER  800
 
-// ********** Globale constanten voor snelle berekening *********************************
+// Wiskundige constante
+#define WORTEL3 1.73205  // sqrt(3)
 
-static const double sinustabel[91] = {            // sinus van 0 t/m 90 graden
-	0.0     ,0.017452,0.034899,0.052336,0.069756,0.087156,0.104528,0.121869,0.139173,0.156434,
-	0.173648,0.190809,0.207912,0.224951,0.241922,0.258819,0.275637,0.292372,0.309017,0.325568,
-	0.342020,0.358368,0.374607,0.390731,0.406737,0.422618,0.438371,0.453990,0.469472,0.484810,
-	0.5     ,0.515038,0.529919,0.544639,0.559193,0.573576,0.587785,0.601815,0.615661,0.629320,
-	0.642788,0.656059,0.669131,0.681998,0.694658,0.707107,0.719340,0.731354,0.743145,0.754710,
-	0.766044,0.777146,0.788011,0.798636,0.809017,0.819152,0.829038,0.838671,0.848048,0.857167,
-	0.866025,0.874620,0.882948,0.891007,0.898794,0.906308,0.913545,0.920505,0.927184,0.933580,
-	0.939693,0.945519,0.951057,0.956305,0.961262,0.965926,0.970296,0.974370,0.978148,0.981627,
-	0.984808,0.987688,0.990268,0.992546,0.994522,0.996195,0.997564,0.998630,0.999391,0.999848,
-	1.0
-};
+// ********** Typedefs ******************************************************************
 
-// ********** Structs en globale variabelen *********************************************
+// Arduino type voor simulatie
+typedef unsigned char byte;
 
-// een punt of een vector
+// Struct voor een punt of een vector
 typedef struct {
-	double x, y, z;
+	float x, y, z;
 } punt;
 
-// kenmerken van alle aangesloten servo's
-typedef struct {
-	int pin;        // Arduino pinnummer
-	int hoek;       // hoek van arm1 met het xy-vlak
-	int pwm;        // T-hoog van het PWM-signaal
-	int t_min;      // T-hoog minimum
-	int t_max;      // T-hoog maximum
-	int t_nul;      // basis voor T-hoog berekening
-	double t_rico;  // factor voor T-hoog berekening
-} servoinfo;
+// Struct voor vaste waarden van de Deltarobot servo's
+typedef const struct {
+	byte pin;             // Arduino pinnummer
+	int hoekmin;          // minimale hoek van arm1 met het xy-vlak
+	int hoekmax;          // maximale hoek van arm1 met het xy-vlak
+	unsigned int pwmnul;  // T-hoog (us) voor hoek = 0
+	float pwmrico;        // T-hoog richtingscoefficient (us/graad)
+} servo_const;
 
-servoinfo robot[3] = {
+// Struct voor variabelen van de Deltarobot servo's
+typedef struct {
+	int hoek;          // hoek van arm1 met het xy-vlak
+	unsigned int pwm;  // T-hoog van het PWM-signaal
+} servo_var;
+
+// ********** Globale constanten ********************************************************
+
+// Vaste waarden van de Deltarobot servo's
+servo_const servodata[3] = {
 	{ .pin = 9,
-	  .hoek = 0, .hoekmin = -30, .hoekmax = 120,
-	  .pwm = SERVO0_HOR, .pwmmin = SERVO0_MIN, .pwmmax = SERVO0_MAX,
-	  .pwmnul = SERVO0_HOR, .pwmrico = (SERVO0_HOR - SERVO0_VER) / 90.0 },
+		.hoekmin = -30, .hoekmax = 120,
+		.pwmnul = SERVO0_HOR, .pwmrico = (SERVO0_HOR - SERVO0_VER) / 90.0f },
 	{ .pin = 10,
-	  .hoek = 0, .hoekmin = -30, .hoekmax = 120,
-	  .pwm = SERVO1_HOR, .pwmmin = SERVO1_MIN, .pwmmax = SERVO1_MAX,
-	  .pwmnul = SERVO1_HOR, .pwmrico = (SERVO1_HOR - SERVO1_VER) / 90.0 },
+		.hoekmin = -30, .hoekmax = 120,
+		.pwmnul = SERVO1_HOR, .pwmrico = (SERVO1_HOR - SERVO1_VER) / 90.0f },
 	{ .pin = 11,
-	  .hoek = 0, .hoekmin = -30, .hoekmax = 120,
-	  .pwm = SERVO2_HOR, .pwmmin = SERVO2_MIN, .pwmmax = SERVO2_MAX,
-	  .pwmnul = SERVO2_HOR, .pwmrico = (SERVO2_HOR - SERVO2_VER) / 90.0 }
+		.hoekmin = -30, .hoekmax = 120,
+		.pwmnul = SERVO2_HOR, .pwmrico = (SERVO2_HOR - SERVO2_VER) / 90.0f }
+};
+
+// Eerste kwadrant van de sinusfunctie, voor hele graden 0..90
+static const float sinustabel[91] = {
+	0.0f     ,0.017452f,0.034899f,0.052336f,0.069756f,0.087156f,0.104528f,0.121869f,0.139173f,0.156434f,
+	0.173648f,0.190809f,0.207912f,0.224951f,0.241922f,0.258819f,0.275637f,0.292372f,0.309017f,0.325568f,
+	0.342020f,0.358368f,0.374607f,0.390731f,0.406737f,0.422618f,0.438371f,0.453990f,0.469472f,0.484810f,
+	0.5f     ,0.515038f,0.529919f,0.544639f,0.559193f,0.573576f,0.587785f,0.601815f,0.615661f,0.629320f,
+	0.642788f,0.656059f,0.669131f,0.681998f,0.694658f,0.707107f,0.719340f,0.731354f,0.743145f,0.754710f,
+	0.766044f,0.777146f,0.788011f,0.798636f,0.809017f,0.819152f,0.829038f,0.838671f,0.848048f,0.857167f,
+	0.866025f,0.874620f,0.882948f,0.891007f,0.898794f,0.906308f,0.913545f,0.920505f,0.927184f,0.933580f,
+	0.939693f,0.945519f,0.951057f,0.956305f,0.961262f,0.965926f,0.970296f,0.974370f,0.978148f,0.981627f,
+	0.984808f,0.987688f,0.990268f,0.992546f,0.994522f,0.996195f,0.997564f,0.998630f,0.999391f,0.999848f,
+	1.0f
+};
+
+// ********** Globale variabelen ********************************************************
+
+// Servo instellingen van de Deltarobot
+servo_var servoinstel[3] = {
+	{ .hoek = 0, .pwm = SERVO0_HOR },
+	{ .hoek = 0, .pwm = SERVO1_HOR },
+	{ .hoek = 0, .pwm = SERVO2_HOR }
 };
 
 // ********** Functie prototypes ********************************************************
 
-double sinus(int graden);
-double cosinus(int graden);
-double arm2lengte(int n, int a, punt p);
-void zoekhoeken(punt doel);
+float sinus(int graden);
+float cosinus(int graden);
+float arm2lengte(byte n, int a, punt p);
+bool doornulheen(float f0, float f1);
+bool eersteiskleiner(float f0, float f1);
+void zoekhoeken(punt pos);
+void lijn(punt startpunt, punt eindpunt, unsigned int mmperstap);
+//void cirkel(punt startpunt, punt middelpunt, char richting, unsigned int mmperstap);
+//void boog(punt startpunt, punt eindpunt, punt middelpunt, char richting, unsigned int mmperstap);
 
 // ********** Main **********************************************************************
 
 int main(void)
 {
-	punt positie;
-	int i;
+	punt p0 = { -20, -20, 190 };
+	punt p1 = { 20, -20, 190 };
+	punt p2 = { 20, 20, 190 };
+	punt p3 = { -20, 20, 190 };
 
-	printf("x,y,z,a0,a1,a2\n");
+	printf("Vierkant:\n");
+	printf("\nx,y,z,a0,a1,a2\n");
+	lijn(p0, p1, 2);
+	printf("\nx,y,z,a0,a1,a2\n");
+	lijn(p1, p2, 2);
+	printf("\nx,y,z,a0,a1,a2\n");
+	lijn(p2, p3, 2);
+	printf("\nx,y,z,a0,a1,a2\n");
+	lijn(p3, p0, 2);
 
-	positie.x = -20.0;
-	while (positie.x <= 20.0) {
-		positie.y = -20.0;
-		while (positie.y <= 20.0) {
-			positie.z = 180.0;
-			while (positie.z <= 210.0) {
-
-				benadering = zoekhoeken(positie);
-				printf("%.0f,%.0f,%.0f,%i,%i,%i\n", positie.x, positie.y, positie.z, benadering.a[0], benadering.a[1], benadering.a[2]);
-
-				// Bewaar hoeken en reken om naar T-hoog
-				for (i = 0; i < 3; ++i) {
-
-					//TODO: check eerst of de hoeken wel kunnen/mogen
-					robothoek.a[i] = benadering.a[i];
-
-					//TODO: er moet nog een of andere factor tussen
-					myservo[i].pwm = 1500 + robothoek.a[i];
-
-					//TODO: zet dit in een functie, vraag aan product owner wat ie precies wil
-					/*
-					digitalWrite(myservo[i].pin, HIGH);
-					delayMicroseconds(myservo[i].pwm);
-					digitalWrite(myservo[i].pin, LOW);
-					*/
-				}
-				positie.z += 1.0;
-			}
-			positie.y += 10.0;
-		}
-        positie.x += 10.0;
-    }
-    return 0;
+	return 0;
 }
 
 // ********** Functie implementaties ****************************************************
@@ -142,9 +136,9 @@ int main(void)
  *   param graden: hoek in graden
  *   return: sinus van de hoek
  */
-double sinus(int graden)
+float sinus(int graden)
 {
-	// range = [-179 .. +180]
+	// bereik = [-179..180]
 	while (graden <= -180)
 		graden += 360;
 	while (graden > 180)
@@ -156,7 +150,7 @@ double sinus(int graden)
 		return sinustabel[graden];        // 1e kwadrant
 	if (graden >= -90)
 		return -sinustabel[-graden];      // 4e kwadrant
-	return -sinustabel[180 + graden];     // 3e kwadrant
+	return -sinustabel[180 + graden];   // 3e kwadrant
 }
 
 /**
@@ -164,9 +158,9 @@ double sinus(int graden)
  *   param graden: hoek in graden
  *   return: cosinus van de hoek
  */
-double cosinus(int graden)
+float cosinus(int graden)
 {
-	// range = [-179 .. +180]
+	// bereik = [-179..180]
 	while (graden <= -180)
 		graden += 360;
 	while (graden > 180)
@@ -178,7 +172,7 @@ double cosinus(int graden)
 		return sinustabel[90 - graden];   // 1e kwadrant = sinus 2e kwadrant
 	if (graden >= -90)
 		return sinustabel[90 + graden];   // 4e kwadrant = sinus 1e kwadrant
-	return -sinustabel[-graden - 90];     // 3e kwadrant = sinus 4e kwadrant
+	return -sinustabel[-graden - 90];   // 3e kwadrant = sinus 4e kwadrant
 }
 
 /**
@@ -188,16 +182,16 @@ double cosinus(int graden)
  *   param p: doelpositie (x,y,z) van de deltarobot
  *   return: afwijking in lengte (kwadraat) van de arm2 vector
  */
-double arm2lengte(int n, int a, punt p)
+float arm2lengte(byte n, int a, punt p)
 {
-	static const double k0 = 0.5 * (L_TRI1 - L_TRI2);          // (1/2) . (T1 - T2)
-	static const double k1 = WORTEL3 * (L_TRI1 - L_TRI2) / 3;  // (1/3) . sqrt(3) . (T1 - T2)
-	static const double k2 = WORTEL3 * (L_TRI1 - L_TRI2) / 6;  // (1/6) . sqrt(3) . (T1 - T2)
-	static const double m0 = 0.5 * L_ARM1;                     // (1/2) . A1
-	static const double m1 = 0.5 * WORTEL3 * L_ARM1;           // (1/2) . sqrt(3) . A1
-	static const double m2 = L_ARM2 * L_ARM2;                  // A2 . A2 = inproduct van arm2 vector
+	static const float k0 = 0.5 * (L_TRI1 - L_TRI2);          // (1/2) . (T1 - T2)
+	static const float k1 = WORTEL3 * (L_TRI1 - L_TRI2) / 3;  // (1/3) . sqrt(3) . (T1 - T2)
+	static const float k2 = WORTEL3 * (L_TRI1 - L_TRI2) / 6;  // (1/6) . sqrt(3) . (T1 - T2)
+	static const float m0 = 0.5 * L_ARM1;                     // (1/2) . A1
+	static const float m1 = 0.5 * WORTEL3 * L_ARM1;           // (1/2) . sqrt(3) . A1
+	static const float m2 = 1.0 * L_ARM2 * L_ARM2;            // A2 . A2 = inproduct van arm2 vector
 
-	double cosa = cosinus(a);
+	float cosa = cosinus(a);
 	switch (n) {
 		case 0:
 			p.x -= k1 + L_ARM1 * cosa;
@@ -217,57 +211,163 @@ double arm2lengte(int n, int a, punt p)
 }
 
 /**
- * Benader de servohoeken en bijbehorende T-hoog
- *   param doel: doelpositie (x,y,z) van de deltarobot
+ * Hebben ze een verschillend teken (de ene negatief, de andere nul of positief)
  */
-void zoekhoeken(punt doel)
+bool doornulheen(float f0, float f1)
 {
-	static int richting[3] = { 1, 1, 1 };
-	int testhoek;
-	double len0, len1, diff;  // benadering
+	return ((*(((byte*) &f0) + 3) & 0x80) ^ (*(((byte*) &f1) + 3) & 0x80));
+}
 
-	for (int i = 0; i < 3; ++i) {
-		testhoek = robot[i].hoek;
+/**
+ * Welke absolute waarde is kleiner (dichter bij nul is beter)
+ */
+bool eersteiskleiner(float f0, float f1)
+{
+	*(((byte*) &f0) + 3) &= 0x7f;  // reset signbit = abs()
+	*(((byte*) &f1) + 3) &= 0x7f;
+	return (f0 < f1);
+}
 
-		len0 = arm2lengte(i, testhoek, doel);
-		testhoek += richting[i];
-		len1 = arm2lengte(i, testhoek, doel);
+/**
+ * Benader de servohoeken en bijbehorende T-hoog
+ * param pos: doelpositie (x,y,z) van de Deltarobot
+ * resultaat in globale variabele servoinstel[]
+ */
+void zoekhoeken(punt pos)
+{
+	static int richting[3] = { 1, 1, 1 };   // onthoud de richting voor nieuwe hoek
+	int hoek0, hoek1, bestehoek, randhoek;  // probeer hoeken
+	float len0, len1;                       // benadering van arm2
+	bool klaar;                             // geen iteratie meer nodig
 
-		if ((*(((byte*) &len0) + 3) & 0x80) ^ (*(((byte*) &len1) + 3) & 0x80)) {
+	for (byte i = 0; i < 3; ++i) {
+		
+		// Beginwaarden
+		klaar = false;
+		hoek0 = servoinstel[i].hoek;
+		
+		// Check randen, doe 1e poging
+		if (hoek0 <= servodata[i].hoekmin) {
 
-			// signbit verschillend => 1 van de 2 is beste benadering
-			*(((byte*) &len0) + 3) &= 0x7f;  // reset signbit = abs()
-			*(((byte*) &len1) + 3) &= 0x7f;
-			if (len0 < len1)
-				testhoek -= richting[i];  // len0 was betere benadering
+			// De eerste hoek is meteen al op of onder het minimum
+			richting[i] = 1;
+			hoek0 = servodata[i].hoekmin;
+			hoek1 = hoek0 + 1;
+			len0 = arm2lengte(i, hoek0, pos);
+			len1 = arm2lengte(i, hoek1, pos);
+			if (eersteiskleiner(len0, len1)) {
+				// Eerste was beter, maar die hoek was al minimaal, dus klaar
+				bestehoek = hoek0;
+				klaar = true;
+			} else if (doornulheen(len0, len1)) {
+				// Benaderingen hebben verschillend teken: 1 van de 2 is de beste
+				bestehoek = eersteiskleiner(len0, len1) ? hoek0 : hoek1;
+				klaar = true;
+			} else {
+				// We moeten verder zoeken in deze richting
+				bestehoek = hoek1;
+			}
+			
+
+		} else if (hoek0 >= servodata[i].hoekmax) {
+
+			// De eerste hoek is meteen al op of boven het maximum
+			richting[i] = -1;
+			hoek0 = servodata[i].hoekmax;
+			hoek1 = hoek0 - 1;
+			len0 = arm2lengte(i, hoek0, pos);
+			len1 = arm2lengte(i, hoek1, pos);
+			if (eersteiskleiner(len0, len1)) {
+				// Eerste was beter, maar die hoek was al maximaal, dus klaar
+				bestehoek = hoek0;
+				klaar = true;
+			} else if (doornulheen(len0, len1)) {
+				// Benaderingen hebben verschillend teken: 1 van de 2 is de beste
+				bestehoek = eersteiskleiner(len0, len1) ? hoek0 : hoek1;
+				klaar = true;
+			} else {
+				// We moeten verder zoeken in deze richting
+				bestehoek = hoek1;
+			}
 
 		} else {
 
-			// signbit hetzelfde => verder op zoek
-			if (*(((byte*) &len0) + 3) & 0x80)
-				diff = len0 - len1;  // allebei negatief
-			else
-				diff = len1 - len0;  // allebei positief
-			if (diff > 0) {
-				// we gaan de verkeerde kant op
-				testhoek -= richting[i];     // terug naar beginwaarde
+			// We zitten (nog) niet op een rand dus probeer eerst de oude richting
+			hoek1 = hoek0 + richting[i];
+			len0 = arm2lengte(i, hoek0, pos);
+			len1 = arm2lengte(i, hoek1, pos);
+			if (doornulheen(len0, len1)) {
+				// Benaderingen hebben verschillend teken: 1 van de 2 is de beste
+				bestehoek = eersteiskleiner(len0, len1) ? hoek0 : hoek1;
+				klaar = true;
+			} else if (eersteiskleiner(len0, len1)) {
+				// De vorige was dichter bij nul: we gaan de verkeerde kant op!
 				richting[i] = -richting[i];  // vanaf nu de andere kant op
-				len1 = len0;                 // len0 was beter
+				bestehoek = hoek0;           // begin opnieuw vanaf beginwaarde
+				len1 = len0;                 // len0 was beter, gebruik als laatste benadering
+			} else {
+				// We moeten verder zoeken in deze richting
+				bestehoek = hoek1;
 			}
 
+		}
+
+		if (!klaar) {
+
+			// Houd minimum of maximum in de gaten
+			randhoek = (richting[i] > 0) ? servodata[i].hoekmax : servodata[i].hoekmin;
+
+			// Doorzoeken zolang niet op de rand, en benaderingen met hetzelfde teken
 			do {
 				len0 = len1;                           // vorige onthouden
-				testhoek += richting[i];               // nieuwe hoek
-				len1 = arm2lengte(i, testhoek, doel);  // nieuwe benadering van arm2
-			} while (!((*(((byte*) &len0) + 3) & 0x80) ^ (*(((byte*) &len1) + 3) & 0x80)));
+				bestehoek += richting[i];              // nieuwe hoek poging
+				len1 = arm2lengte(i, bestehoek, pos);  // nieuwe benadering van arm2
+			} while (bestehoek != randhoek && !doornulheen(len0, len1));
 
-			// signbit verschillend => 1 van de 2 is beste benadering
-			*(((byte*) &len0) + 3) &= 0x7f;  // reset signbit = abs()
-			*(((byte*) &len1) + 3) &= 0x7f;
-			if (len0 < len1)
-				testhoek -= richting[i];  // vorige was betere benadering
+			// We zitten nu of op de rand, of we hebben de beste benadering gevonden
+			if (bestehoek != randhoek)
+				// Niet op de rand, dus de benaderingen hebben verschillend teken:
+				// 1 van de 2 is de beste, check welke
+				if (eersteiskleiner(len0, len1))
+					bestehoek -= richting[i];
 		}
-		robot[i].hoek = testhoek;
-		robot[i].pwm = robot[i].pwmnul - (robot[i].pwmrico * testhoek);
+
+		// Nieuwe servo instelling
+		servoinstel[i].hoek = bestehoek;
+		servoinstel[i].pwm = servodata[i].pwmnul - (servodata[i].pwmrico * bestehoek);
 	}
+	if (DEBUG)
+		printf("%.0f,%.0f,%.0f,%i,%i,%i\n", pos.x, pos.y, pos.z, servoinstel[0].hoek, servoinstel[1].hoek, servoinstel[2].hoek);
+}
+
+/**
+ * Beweeg de Deltarobot in een rechte lijn van A naar B
+ * param mmperstap: verplaatsing in mm per stap in de 3D-beweging (0 => in 1 keer)
+ */
+void lijn(punt startpunt, punt eindpunt, unsigned int mmperstap)
+{
+	float dx, dy, dz;
+	unsigned int i, stappen = 0;
+
+	if (mmperstap) {
+		dx = eindpunt.x - startpunt.x;
+		dy = eindpunt.y - startpunt.y;
+		dz = eindpunt.z - startpunt.z;
+		stappen = 0.5 + sqrt(dx*dx + dy*dy + dz*dz) / mmperstap;
+		if (stappen > 1) {
+			// Verplaatsing per stap in x/y/z-richting
+			dx /= stappen;
+			dy /= stappen;
+			dz /= stappen;
+		}
+	}
+
+	zoekhoeken(startpunt);  // begin hier
+	for (i = 1; i < stappen; ++i) {  // vanaf 1 want neem alleen tussenpunten
+		startpunt.x += dx;
+		startpunt.y += dy;
+		startpunt.z += dz;
+		zoekhoeken(startpunt);
+	}
+	zoekhoeken(eindpunt);  // eindig hier
 }
