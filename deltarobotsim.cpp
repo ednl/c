@@ -1,11 +1,14 @@
 // ********** Bibliotheken **************************************************************
 
-#include <stdio.h>  // printf
-#include <math.h>   // sqrt
+#ifndef ARDUINO
+	// Voor simulatie niet op een Arduino
+	#include <stdio.h>  // printf
+	#include <math.h>   // sqrt, fabsf
+#endif
 
 // ********** Definities ****************************************************************
 
-#define DEBUG 1  // print tussenstappen ja (1) of nee (0)
+#define DEBUG  // print tussenstappen, zie onderaan zoekhoeken()
 
 // Deltarobot afmetingen
 #define L_TRI1 175  // lengte (mm) van zijde van basisplaat (die stil staat)
@@ -29,13 +32,17 @@
 #define SERVO2_HOR 1700
 #define SERVO2_VER  800
 
+#define SERVO_HOR  1953  // nieuwe waarde, zie servo-ijking.xlsx
+
 // Wiskundige constante
 #define WORTEL3 1.73205  // sqrt(3)
 
 // ********** Typedefs ******************************************************************
 
-// Arduino type voor simulatie
-typedef unsigned char byte;
+#ifndef ARDUINO
+	// Voor simulatie niet op een Arduino
+	typedef unsigned char byte;
+#endif
 
 // Struct voor een punt of een vector
 typedef struct {
@@ -60,16 +67,14 @@ typedef struct {
 // ********** Globale constanten ********************************************************
 
 // Vaste waarden van de Deltarobot servo's
-servo_const servodata[3] = {
-	{ .pin = 9,
-		.hoekmin = -30, .hoekmax = 120,
-		.pwmnul = SERVO0_HOR, .pwmrico = (SERVO0_HOR - SERVO0_VER) / 90.0f },
-	{ .pin = 10,
-		.hoekmin = -30, .hoekmax = 120,
-		.pwmnul = SERVO1_HOR, .pwmrico = (SERVO1_HOR - SERVO1_VER) / 90.0f },
-	{ .pin = 11,
-		.hoekmin = -30, .hoekmax = 120,
-		.pwmnul = SERVO2_HOR, .pwmrico = (SERVO2_HOR - SERVO2_VER) / 90.0f }
+// hoekmin/max berekend uit gemeten T-hoog-min/max en gekozen nulpunt SERVO_HOR
+static servo_const servodata[3] = {
+	{ .pin =  9, .hoekmin = -22, .hoekmax = 120,
+		.pwmnul = SERVO_HOR, .pwmrico = (SERVO0_HOR - SERVO0_VER) / 90.0f },
+	{ .pin = 10, .hoekmin = -34, .hoekmax = 122,
+		.pwmnul = SERVO_HOR, .pwmrico = (SERVO1_HOR - SERVO1_VER) / 90.0f },
+	{ .pin = 11, .hoekmin = -40, .hoekmax = 129,
+		.pwmnul = SERVO_HOR, .pwmrico = (SERVO2_HOR - SERVO2_VER) / 90.0f }
 };
 
 // Eerste kwadrant van de sinusfunctie, voor hele graden 0..90
@@ -89,10 +94,11 @@ static const float sinustabel[91] = {
 // ********** Globale variabelen ********************************************************
 
 // Servo instellingen van de Deltarobot
-servo_var servoinstel[3] = {
-	{ .hoek = 0, .pwm = SERVO0_HOR },
-	{ .hoek = 0, .pwm = SERVO1_HOR },
-	{ .hoek = 0, .pwm = SERVO2_HOR }
+// volatile vanwege toekomstige interrupt-functie op Arduino
+volatile servo_var servoinstel[3] = {
+	{ .hoek = 0, .pwm = SERVO_HOR },
+	{ .hoek = 0, .pwm = SERVO_HOR },
+	{ .hoek = 0, .pwm = SERVO_HOR }
 };
 
 // ********** Functie prototypes ********************************************************
@@ -107,27 +113,60 @@ void lijn(punt startpunt, punt eindpunt, unsigned int mmperstap, bool eerstnaars
 //void cirkel(punt startpunt, punt middelpunt, char richting, unsigned int mmperstap);
 //void boog(punt startpunt, punt eindpunt, punt middelpunt, char richting, unsigned int mmperstap);
 
+// ********** Setup *********************************************************************
+
+#ifdef ARDUINO
+	// Alleen op Arduino
+	void setup()
+	{
+		byte i;
+
+		#ifdef DEBUG
+			Serial.begin(115200);
+			while (!Serial) ;
+		#endif
+
+		for (i = 0; i < 3; ++i) {
+			pinMode(servodata[i].pin, OUTPUT);
+			digitalWrite(servodata[i].pin, LOW);
+		}
+	}
+#endif
+
+// ********** Loop **********************************************************************
+
+#ifdef ARDUINO
+	// Alleen op Arduino
+	void loop()
+	{
+		//TODO
+	}
+#endif
+
 // ********** Main **********************************************************************
 
-int main(void)
-{
-	punt p0 = { -20, -20, 190 };
-	punt p1 = { 20, -20, 190 };
-	punt p2 = { 20, 20, 190 };
-	punt p3 = { -20, 20, 190 };
+#ifndef ARDUINO
+	// Voor simulatie niet op een Arduino
+	int main(void)
+	{
+		punt p0 = { -50, -50, 185 };
+		punt p1 = {  50, -50, 185 };
+		punt p2 = {  50,  50, 185 };
+		punt p3 = { -50,  50, 185 };
 
-	printf("Vierkant:\n");
-	printf("\nx,y,z,a0,a1,a2\n");
-	lijn(p0, p1, 5, true);
-	printf("\nx,y,z,a0,a1,a2\n");
-	lijn(p1, p2, 5, false);
-	printf("\nx,y,z,a0,a1,a2\n");
-	lijn(p2, p3, 5, false);
-	printf("\nx,y,z,a0,a1,a2\n");
-	lijn(p3, p0, 5, false);
+		printf("Vierkant:\n");
+		printf("\nx,y,z,a0,a1,a2\n");
+		lijn(p0, p1, 10, true);
+		printf("\nx,y,z,a0,a1,a2\n");
+		lijn(p1, p2, 10, false);
+		printf("\nx,y,z,a0,a1,a2\n");
+		lijn(p2, p3, 10, false);
+		printf("\nx,y,z,a0,a1,a2\n");
+		lijn(p3, p0, 10, false);
 
-	return 0;
-}
+		return 0;
+	}
+#endif
 
 // ********** Functie implementaties ****************************************************
 
@@ -211,21 +250,29 @@ float arm2lengte(byte n, int a, punt p)
 }
 
 /**
- * Hebben ze een verschillend teken (de ene negatief, de andere nul of positief)
+ * Hebben ze een verschillend teken? (1 negatief, 1 nul of positief)
  */
 bool doornulheen(float f0, float f1)
 {
-	return ((*(((byte*) &f0) + 3) & 0x80) ^ (*(((byte*) &f1) + 3) & 0x80));
+	#ifdef ARDUINO
+		return ((*(((byte*) &f0) + 3) & 0x80) ^ (*(((byte*) &f1) + 3) & 0x80));
+	#else
+		return ((f0 < 0) != (f1 < 0));
+	#endif
 }
 
 /**
- * Welke absolute waarde is kleiner (dichter bij nul is beter)
+ * Welke absolute waarde is kleiner? (dichter bij nul)
  */
 bool eersteiskleiner(float f0, float f1)
 {
-	*(((byte*) &f0) + 3) &= 0x7f;  // reset signbit = abs()
-	*(((byte*) &f1) + 3) &= 0x7f;
-	return (f0 < f1);
+	#ifdef ARDUINO
+		*(((byte*) &f0) + 3) &= 0x7f;  // reset signbit = abs()
+		*(((byte*) &f1) + 3) &= 0x7f;
+		return (f0 < f1);
+	#else
+		return (fabsf(f0) < fabsf(f1));
+	#endif
 }
 
 /**
@@ -236,49 +283,33 @@ bool eersteiskleiner(float f0, float f1)
 void zoekhoeken(punt pos)
 {
 	static int richting[3] = { 1, 1, 1 };   // onthoud de richting voor nieuwe hoek
-	int hoek0, hoek1, bestehoek, randhoek;  // probeer hoeken
+	int hoek0, hoek1, bestehoek, randhoek;  // probeer hoeken, min/max
 	float len0, len1;                       // benadering van arm2
 	bool klaar;                             // geen iteratie meer nodig
 
 	for (byte i = 0; i < 3; ++i) {
 		
-		// Beginwaarden
+		// Beginwaarde
 		klaar = false;
 		hoek0 = servoinstel[i].hoek;
 		
 		// Check randen, doe 1e poging
-		if (hoek0 <= servodata[i].hoekmin) {
+		if (hoek0 <= servodata[i].hoekmin || hoek0 >= servodata[i].hoekmax) {
 
-			// De eerste hoek is meteen al op of onder het minimum
-			richting[i] = 1;
-			hoek0 = servodata[i].hoekmin;
-			hoek1 = hoek0 + 1;
-			len0 = arm2lengte(i, hoek0, pos);
-			len1 = arm2lengte(i, hoek1, pos);
-			if (eersteiskleiner(len0, len1)) {
-				// Eerste was beter, maar die hoek was al minimaal, dus klaar
-				bestehoek = hoek0;
-				klaar = true;
-			} else if (doornulheen(len0, len1)) {
-				// Benaderingen hebben verschillend teken: 1 van de 2 is de beste
-				bestehoek = eersteiskleiner(len0, len1) ? hoek0 : hoek1;
-				klaar = true;
+			if (hoek0 <= servodata[i].hoekmin) {
+				// De eerste hoek is meteen al op of onder het minimum
+				richting[i] = 1;               // omhoog
+				hoek0 = servodata[i].hoekmin;  // voor de zekerheid
 			} else {
-				// We moeten verder zoeken in deze richting
-				bestehoek = hoek1;
+				// De eerste hoek is meteen al op of boven het maximum
+				richting[i] = -1;              // omlaag
+				hoek0 = servodata[i].hoekmax;  // voor de zekerheid
 			}
-			
-
-		} else if (hoek0 >= servodata[i].hoekmax) {
-
-			// De eerste hoek is meteen al op of boven het maximum
-			richting[i] = -1;
-			hoek0 = servodata[i].hoekmax;
-			hoek1 = hoek0 - 1;
+			hoek1 = hoek0 + richting[i];
 			len0 = arm2lengte(i, hoek0, pos);
 			len1 = arm2lengte(i, hoek1, pos);
 			if (eersteiskleiner(len0, len1)) {
-				// Eerste was beter, maar die hoek was al maximaal, dus klaar
+				// Eerste was beter, maar die hoek was al min/maximaal, dus klaar
 				bestehoek = hoek0;
 				klaar = true;
 			} else if (doornulheen(len0, len1)) {
@@ -286,7 +317,7 @@ void zoekhoeken(punt pos)
 				bestehoek = eersteiskleiner(len0, len1) ? hoek0 : hoek1;
 				klaar = true;
 			} else {
-				// We moeten verder zoeken in deze richting
+				// We moeten verder zoeken in de ingeslagen richting
 				bestehoek = hoek1;
 			}
 
@@ -335,28 +366,57 @@ void zoekhoeken(punt pos)
 		// Nieuwe servo instelling
 		servoinstel[i].hoek = bestehoek;
 		servoinstel[i].pwm = servodata[i].pwmnul - (servodata[i].pwmrico * bestehoek);
+		#ifdef ARDUINO
+			// Alleen op Arduino
+			// Schrijf nieuwe T-hoog naar PWM pin
+			digitalWrite(servodata[i].pin, HIGH);
+			delayMicroseconds(servoinstel[i].pwm);
+			digitalWrite(servodata[i].pin, LOW);
+		#endif
 	}
-	if (DEBUG)
-		printf("%.0f,%.0f,%.0f,%i,%i,%i\n", pos.x, pos.y, pos.z, servoinstel[0].hoek, servoinstel[1].hoek, servoinstel[2].hoek);
+	#ifdef DEBUG
+		#ifdef ARDUINO
+			// Alleen op Arduino
+			Serial.print(pos.x);
+			Serial.print(",");
+			Serial.print(pos.y);
+			Serial.print(",");
+			Serial.print(pos.z);
+			Serial.print(",");
+			Serial.print(servoinstel[0].hoek);
+			Serial.print(",");
+			Serial.print(servoinstel[1].hoek);
+			Serial.print(",");
+			Serial.println(servoinstel[2].hoek);
+		#else
+			// Voor simulatie niet op een Arduino
+			printf("%.0f,%.0f,%.0f,%i,%i,%i\n",
+				pos.x, pos.y, pos.z,
+				servoinstel[0].hoek, servoinstel[1].hoek, servoinstel[2].hoek);
+		#endif
+	#endif
 }
 
 /**
  * Beweeg de Deltarobot in een rechte lijn van A naar B
+ * param startpunt: van punt A (x,y,z)
+ * param eindpunt: naar punt B (x,y,z)
  * param mmperstap: verplaatsing in mm per stap in de 3D-beweging (0 = in 1 keer)
+ * param eerstnaarstart: eerst naar het startpunt bewegen, of is dit een voortzetting?
  */
 void lijn(punt startpunt, punt eindpunt, unsigned int mmperstap, bool eerstnaarstart)
 {
 	float dx, dy, dz;
 	unsigned int stappen = 0;
 
-	if (mmperstap) {
+	if (mmperstap) {  // begrensde snelheid
 		dx = eindpunt.x - startpunt.x;
 		dy = eindpunt.y - startpunt.y;
 		dz = eindpunt.z - startpunt.z;
 		stappen = 0.5 + sqrt(dx*dx + dy*dy + dz*dz) / mmperstap;
-		if (stappen) {
-			if (stappen != 1) {
-				// Verplaatsing per stap in x/y/z-richting
+		if (stappen) {  // 1 of meer stappen
+			if (stappen != 1) {  // 2 of meer stappen
+				// Bereken verplaatsing per stap in x/y/z-richting
 				dx /= stappen;
 				dy /= stappen;
 				dz /= stappen;
@@ -371,7 +431,7 @@ void lijn(punt startpunt, punt eindpunt, unsigned int mmperstap, bool eerstnaars
 		startpunt.x += dx;
 		startpunt.y += dy;
 		startpunt.z += dz;
-		zoekhoeken(startpunt);
+		zoekhoeken(startpunt);  // tussenpunt
 		--stappen;
 	}
 	zoekhoeken(eindpunt);  // eindig hier
