@@ -1,14 +1,14 @@
-// ********** Bibliotheken **************************************************************
-
-#ifndef ARDUINO
-	// Voor simulatie, niet op een Arduino
-	#include <stdio.h>  // printf
-	#include <math.h>   // sqrt, fabsf
-#endif
-
 // ********** Definities ****************************************************************
 
-#define DEBUG  // print tussenstappen, zie onderaan zoekhoeken()
+#define DEBUG        // print nieuwe positie/hoek/T-hoog, zie onderaan zoekhoeken()
+#define BAUD 115200  // snelheid seriele poort in bit/s
+
+// Basis voor de overflow-interrupt teller in 16-bits timer1
+// met een klokfrequentie van 16 MHz, een prescaler van 8 en
+// een beoogde frequentie van 50 Hz, waarbij één tel overeenkomt
+// met 0,5 us, dus 40000 tikken met 0,02 s = 50 Hz
+// Berekening: 65536 - 16MHz/8/50Hz = 65536 - 40000 = 25536
+#define TELLER50HZ 25536
 
 // Deltarobot afmetingen
 #define L_TRI1 175  // lengte (mm) van zijde van basisplaat (die stil staat)
@@ -16,42 +16,46 @@
 #define L_ARM1  50  // lengte (mm) van onderste arm (die aan servo vastzit)
 #define L_ARM2 202  // lengte (mm) van bovenste arm (die aan topplaat vastzit)
 
-// Servowaarde (T-hoog) minimum, maximum, horizontaal, verticaal
-#define SERVO0_MIN  620
-#define SERVO0_MAX 2200
-#define SERVO0_HOR 1700
-#define SERVO0_VER  700
-
-#define SERVO1_MIN  700
-#define SERVO1_MAX 2300
-#define SERVO1_HOR 1700
-#define SERVO1_VER  780
-
-#define SERVO2_MIN  660
-#define SERVO2_MAX 2350
-#define SERVO2_HOR 1700
-#define SERVO2_VER  800
-
+// Servo pinnummer en T-hoog-waarde minimum, maximum, horizontaal, verticaal
 // TODO: servo's handmatig zo instellen dat SERVOx_HOR ongeveer 1953 is
 // zodat het bereik optimaal is. Zie servo-ijking.xlsx
+#define SERVO0_PIN    9
+#define SERVO0_MIN  620
+#define SERVO0_MAX 2390
+#define SERVO0_HOR 1945
+#define SERVO0_VER 1000
 
-// Wiskundige constante voor berekening
+#define SERVO1_PIN   10
+#define SERVO1_MIN  545
+#define SERVO1_MAX 2415
+#define SERVO1_HOR 1910
+#define SERVO1_VER 1000
+
+#define SERVO2_PIN   11
+#define SERVO2_MIN  525
+#define SERVO2_MAX 2340
+#define SERVO2_HOR 1905
+#define SERVO2_VER 1115
+
+#define ACCEL_X_PIN     A0
+#define ACCEL_Y_PIN     A1
+#define ACCEL_RANGE      4      // bereik is van -2 tot +2 g (TODO: of van -4 tot +4?)
+#define ACCEL_G       9.81
+#define ACCEL_BRAKE   0.01      // niet te snel
+#define ACCEL_FACTOR 0.0003832  // = BRAKE * G * RANGE / 1024
+
+// Wiskundige constante voor snelle berekening
 #define WORTEL3 1.73205  // sqrt(3)
 
 // ********** Typedefs ******************************************************************
 
-#ifndef ARDUINO
-	// Voor simulatie, niet op een Arduino
-	typedef unsigned char byte;
-#endif
-
 // Struct voor een punt of een vector
-typedef struct Punt {
+typedef struct _Punt {
 	float x, y, z;
 } Punt;
 
 // Struct voor vaste waarden van de Deltarobot servo's
-typedef const struct ServoConst {
+typedef const struct _ServoConst {
 	byte pin;             // Arduino pinnummer
 	int hoekmin;          // minimale hoek van arm1 met het xy-vlak
 	int hoekmax;          // maximale hoek van arm1 met het xy-vlak
@@ -60,7 +64,7 @@ typedef const struct ServoConst {
 } ServoConst;
 
 // Struct voor variabelen van de Deltarobot servo's
-typedef struct ServoVar {
+typedef struct _ServoVar {
 	int hoek;          // hoek (graden) van arm1 met het xy-vlak
 	unsigned int pwm;  // T-hoog (us) van het PWM-signaal
 } ServoVar;
@@ -70,10 +74,12 @@ typedef struct ServoVar {
 // Vaste waarden van de Deltarobot servo's
 // hoekmin/max berekend uit gemeten T-hoog-min/max en ingesteld nulpunt SERVOx_HOR
 // per struct: pin, hoekmin, hoekmax, pwmnul, pwmrico
+// ##### TODO: check waar deze hoekmin en hoekmax vandaan komen! Als het goed is van berekening
+// ##### met SERVOx_MIN en SERVOx_MAX. Die berekening dan ook hier zetten ipv. de waardes.
 static ServoConst servodata[3] = {
-	{  9, -22, 120, SERVO0_HOR, (SERVO0_HOR - SERVO0_VER) / 90.0f },
-	{ 10, -34, 122, SERVO1_HOR, (SERVO1_HOR - SERVO1_VER) / 90.0f },
-	{ 11, -40, 129, SERVO2_HOR, (SERVO2_HOR - SERVO2_VER) / 90.0f }
+	{ SERVO0_PIN, -22, 120, SERVO0_HOR, (SERVO0_HOR - SERVO0_VER) / 90.0f },
+	{ SERVO1_PIN, -34, 122, SERVO1_HOR, (SERVO1_HOR - SERVO1_VER) / 90.0f },
+	{ SERVO2_PIN, -40, 129, SERVO2_HOR, (SERVO2_HOR - SERVO2_VER) / 90.0f }
 };
 
 // Eerste kwadrant van de sinusfunctie, voor hele graden 0..90
@@ -91,6 +97,9 @@ static const float sinustabel[91] = {
 };
 
 // ********** Globale variabelen ********************************************************
+
+// Positie (x,y,z) van de Deltarobot
+Punt positie;
 
 // Servo instellingen van de Deltarobot
 // waarden worden gezet wordt in zoekhoeken()
@@ -114,120 +123,106 @@ float cosinus(int);
 float arm2lengte(byte, int, const Punt *);
 bool doornulheen(float, float);
 bool eersteiskleiner(float, float);
-void zoekhoeken(Punt);
-void lijn(Punt, Punt, unsigned int, bool);
+bool zoekhoeken(Punt);
+Punt beginpositie(void);
+Punt lijn(Punt, Punt, unsigned int);
 //void cirkel(Punt startpunt, Punt middelpunt, char richting, unsigned int mmperstap);
 //void boog(Punt startpunt, Punt eindpunt, Punt middelpunt, char richting, unsigned int mmperstap);
 
 // ********** Setup *********************************************************************
 
-#ifdef ARDUINO
-	// Alleen op Arduino
-	void setup()
-	{
-		byte i;
+void setup()
+{
+	byte i;
 
-		// Maak connectie met seriele poort als er output nodig is
-		#ifdef DEBUG
-			Serial.begin(115200);  // snelheid 115200 baud
-			while (!Serial) ;  // wacht totdat de interface beschikbaar is
-		#endif
+	// Maak connectie met seriele poort als er output nodig is
+	#ifdef DEBUG
+		Serial.begin(BAUD);  // snelheid in bit/s
+		while (!Serial) ;    // wacht totdat de interface beschikbaar is
+	#endif
 
-		// Maak de servopins outputs en zet op nul
-		for (i = 0; i < 3; ++i) {
-			pinMode(servodata[i].pin, OUTPUT);
-			digitalWrite(servodata[i].pin, LOW);
-		}
-
-		// Voor sprint 2
-		// Eén punt om het servosignaal weer te geven op een scoop
-		Punt p = { 0, 0, 185 };
-		zoekhoeken(p);
-		#ifdef DEBUG
-			// Instellingen van alle drie de servo's weergeven
-			// TODO: weergeven op oscilloscoop en screenshot
-			for (i = 0; i < 3; ++i ) {
-				Serial.print("servo[");
-				Serial.print(i);
-				Serial.print("].hoek = ");
-				Serial.println(servoinstel[i].hoek, 0);  // geen decimalen
-				Serial.print("servo[");
-				Serial.print(i);
-				Serial.print("].pwm = ");
-				Serial.println(servoinstel[i].pwm);
-			}
-		#endif
-
-		noInterrupts();
-		TCCR1A = 0;              // reset register A
-		TCCR1B = 0;              // reset register B
-		TCNT1 = 25536;           // timer1 counter = 65536 - 16MHz/8/50Hz = 0,02 s tot overflow
-		TCCR1B |= (1 << CS11);   // timer1 prescaler 8 = 0,5 us resolutie
-		TIMSK1 |= (1 << TOIE1);  // timer1 overflow interrupt enable
-		interrupts();
+	// Maak de servopins outputs en zet op nul
+	for (i = 0; i < 3; ++i) {
+		pinMode(servodata[i].pin, OUTPUT);
+		digitalWrite(servodata[i].pin, LOW);
 	}
-#endif
+
+	// Voor sprint 2
+	// Eén punt om het servosignaal weer te geven op een scoop
+	positie = beginpositie();
+
+	noInterrupts();
+	TCCR1A = 0;              // reset register A
+	TCCR1B = 0;              // reset register B
+	TCNT1 = TELLER50HZ;       // timer1 counter = 0,02 s tot overflow
+	TCCR1B |= (1 << CS11);   // timer1 prescaler 8 = 0,5 us resolutie
+	TIMSK1 |= (1 << TOIE1);  // timer1 overflow interrupt enable
+	interrupts();
+}
 
 // ********** Loop **********************************************************************
 
-#ifdef ARDUINO
-	// Alleen op Arduino
-	void loop()
-	{
-		delay(100);
+void loop()
+{
+  // Beweeeg continu in een vierkantje op dezelfde z-hoogte
+  positie = lijn(positie, (Punt){50, 50, 185}, 5);
+  positie = lijn(positie, (Punt){50, -50, 185}, 5);
+  positie = lijn(positie, (Punt){-50, -50, 185}, 5);
+  positie = lijn(positie, (Punt){-50, 50, 185}, 5);
+  delay(1000);  // 1 seconde wachten voor nieuw vierkantje
+
+  /** 
+   * Bewegingsvergelijkingen voor versnellingssensor
+   * Dit stuk niet gebruiken indien die sensor niet is aangesloten!
+	 *
+	float ax, ay;
+	static float vx = 0.0f, vy = 0.0f;
+	static unsigned long t_prev = 0;
+	unsigned long dt, t_now = millis();
+
+	if (t_prev) {
+		dt = t_now - t_prev;
+		ax = ACCEL_FACTOR * (analogRead(ACCEL_X_PIN) - 512);  // TODO: factor 2? Zie bovenaan bij ACCEL_RANGE
+		ay = ACCEL_FACTOR * (analogRead(ACCEL_Y_PIN) - 512);
+		vx += ax * dt;
+		vy += ay * dt;
+		positie.x += vx * dt;
+		positie.y += vy * dt;
+		zoekhoeken(positie);
 	}
+	t_prev = t_now;
+   *
+   * (einde van de begingsvergelijkingen)
+   */
+}
 
-	ISR(TIMER1_OVF_vect)
-	{
-		// Eerst de huidige servopuls uitzetten (0..2 = servonummer, 3 = pauze voor 50 Hz)
-		if (servohoog != 3)
-			digitalWrite(servodata[servohoog].pin, LOW);
-		//PORTB &= B11110001;  // reset pin 9 en 10 en 11
+ISR(TIMER1_OVF_vect)
+{
+	// Eerst de huidige servopuls uitzetten (0..2 = servonummer, 3 = pauze voor 50 Hz)
+	// Sneller maar minder flexibel alternatief voor digitalWrite:
+	//PORTB &= B11110001;  // reset pin 9 en 10 en 11
+	if (servohoog != 3)
+		digitalWrite(servodata[servohoog].pin, LOW);
 
-		// Ga naar de volgende servo (3 servo's en 1 pauze, dus modulo 4)
-		++servohoog %= 4;
+	// Ga naar de volgende servo (3 servo's en 1 pauze, dus modulo 4)
+	++servohoog %= 4;
 
-		// Dan die volgende servo aanzetten, of extra pauze voor 50 Hz signaal
-		if (servohoog != 3) {
-			// Servopuls aanzetten voor servonummer 0..2
-			// aftellen tot de ingestelde T-hoog is bereikt
-			// (factor 2 vanwege timer resolutie van 0,5 us zit er al in)
-			digitalWrite(servodata[servohoog].pin, HIGH);
-			//PORTB |= 2 << servohoog;  // set pin 9 of 10 of 11
-			TCNT1 = 65535 - servoinstel[servohoog].pwm + 1;
-		} else {
-			// Pauze voor 50 Hz signaal = volmaken tot 20000 us
-			// maal twee, want timer resolutie is 0,5 us, dus begin te tellen bij
-			// 65536 - 40000 + wat er al af is vanwege 3x T-hoog van de 3 servo's
-			TCNT1 = 25536 + servoinstel[0].pwm + servoinstel[1].pwm + servoinstel[2].pwm;
-		}
+	// Dan die volgende servo aanzetten, of extra pauze voor 50 Hz signaal
+	if (servohoog != 3) {
+		// Servopuls aanzetten voor servonummer 0..2
+		// aftellen tot de ingestelde T-hoog is bereikt
+		// (factor 2 vanwege timer resolutie van 0,5 us zit er al in)
+		// Waarschijnlijk sneller, maar minder flexibel alternatief voor digitalWrite:
+		//PORTB |= 2 << servohoog;  // set pin 9 of 10 of 11
+		digitalWrite(servodata[servohoog].pin, HIGH);
+		TCNT1 = 65535 - servoinstel[servohoog].pwm + 1;
+	} else {
+		// Pauze voor 50 Hz signaal = volmaken tot 20000 us
+		// maal twee, want timer resolutie is 0,5 us, dus begin te tellen bij
+		// 65536 - 40000 + wat er al af is vanwege 3x T-hoog van de 3 servo's
+		TCNT1 = TELLER50HZ + servoinstel[0].pwm + servoinstel[1].pwm + servoinstel[2].pwm;
 	}
-#endif
-
-// ********** Main **********************************************************************
-
-#ifndef ARDUINO
-	// Voor simulatie, niet op een Arduino
-	int main(void)
-	{
-		Punt p0 = { -50, -50, 185 };
-		Punt p1 = {  50, -50, 185 };
-		Punt p2 = {  50,  50, 185 };
-		Punt p3 = { -50,  50, 185 };
-
-		printf("Vierkant:\n");
-		printf("\nx,y,z,a0,a1,a2\n");
-		lijn(p0, p1, 10, true);
-		printf("\nx,y,z,a0,a1,a2\n");
-		lijn(p1, p2, 10, false);
-		printf("\nx,y,z,a0,a1,a2\n");
-		lijn(p2, p3, 10, false);
-		printf("\nx,y,z,a0,a1,a2\n");
-		lijn(p3, p0, 10, false);
-
-		return 0;
-	}
-#endif
+}
 
 // ********** Functie implementaties ****************************************************
 
@@ -320,49 +315,47 @@ float arm2lengte(byte n, int a, const Punt *doel)
 /**
  * Hebben twee getallen een verschillend teken?
  * (de ene negatief, de andere nul of positief)
+ * Eenvoudiger maar minder snel: (f0 < 0) != (f1 < 0)
  */
 bool doornulheen(float f0, float f1)
 {
-	#ifdef ARDUINO
-		// vergelijk (xor) de signbits van de twee floats
-		return ((*(((byte*) &f0) + 3) & 0x80) ^ (*(((byte*) &f1) + 3) & 0x80));
-	#else
-		// zelfde functionaliteit, snel genoeg voor simulatie
-		return ((f0 < 0) != (f1 < 0));
-	#endif
+	// vergelijk (xor) de signbits van de twee floats
+	return ((*(((byte*) &f0) + 3) & 0x80) ^ (*(((byte*) &f1) + 3) & 0x80));
 }
 
 /**
  * Welke absolute waarde is kleiner?
  * (ligt de eerste dichter bij nul?)
+ * Eenvoudiger maar minder snel: fabsf(f0) < fabsf(f1)
  */
 bool eersteiskleiner(float f0, float f1)
 {
-	#ifdef ARDUINO
-		// zet de signbits op nul, vergelijk grootte
-		*(((byte*) &f0) + 3) &= 0x7f;  // reset signbit = abs()
-		*(((byte*) &f1) + 3) &= 0x7f;
-		return (f0 < f1);
-	#else
-		// zelfde functionaliteit, snel genoeg voor simulatie
-		return (fabsf(f0) < fabsf(f1));
-	#endif
+	// zet de signbits op nul, vergelijk grootte
+	*(((byte*) &f0) + 3) &= 0x7f;  // reset signbit = abs(f0)
+	*(((byte*) &f1) + 3) &= 0x7f;  // reset signbit = abs(f1)
+	return (f0 < f1);
 }
 
 /**
  * Benader de servohoeken en bijbehorende T-hoog
  * param pos: doelpositie (x,y,z) van de Deltarobot
- * resultaat in globale variabele servoinstel[]
+ * return: kan het punt bereikt worden?
+ *   indien ja: resultaat hoek+pwm in globale variabele servoinstel[]
  */
-void zoekhoeken(Punt pos)
+bool zoekhoeken(Punt pos)
 {
-	static int richting[3] = { 1, 1, 1 };   // onthoud de richting voor nieuwe hoek
-	int hoek0, hoek1, bestehoek, randhoek;  // probeer hoeken, min/max
-	float len0, len1;                       // benadering van arm2
-	bool klaar;                             // geen iteratie meer nodig
+	static int richting[3] = { 1, 1, 1 };  // onthoud de richting voor nieuwe hoek
+  // Om nieuwe hoekbenaderingen lokaal bij te houden, want de berekening en opslag in de
+  // globale variabele wordt eventueel afgebroken als 1 van de 3 benaderingen niet kan/mag:
+  int bestehoek[3] = { servoinstel[0].hoek, servoinstel[1].hoek, servoinstel[2].hoek };
+  int hoek0, hoek1, randhoek;            // probeer hoeken, min/max
+	float len0, len1;                      // benadering van arm2
+	bool bestegevonden;                    // beste benadering gevonden (verschil door nul heen)
+	bool klaar;                            // geen iteratie meer nodig
+  byte i;
 
-	for (byte i = 0; i < 3; ++i) {
-		
+	for (i = 0; i < 3; ++i) {
+
 		// Beginwaarde
 		klaar = false;
 		hoek0 = servoinstel[i].hoek;
@@ -384,15 +377,16 @@ void zoekhoeken(Punt pos)
 			len1 = arm2lengte(i, hoek1, &pos);
 			if (eersteiskleiner(len0, len1)) {
 				// Eerste was beter, maar die hoek was al min/maximaal, dus klaar
-				bestehoek = hoek0;
-				klaar = true;
+				//bestehoek = hoek0;
+				//klaar = true;
+        return false;  // nieuw algoritme: als één niet kan, dan meteen klaar!
 			} else if (doornulheen(len0, len1)) {
 				// Benaderingen hebben verschillend teken: 1 van de 2 is de beste
-				bestehoek = eersteiskleiner(len0, len1) ? hoek0 : hoek1;
+				bestehoek[i] = eersteiskleiner(len0, len1) ? hoek0 : hoek1;
 				klaar = true;
 			} else {
-				// We moeten verder zoeken in de ingeslagen richting
-				bestehoek = hoek1;
+				// Gaat de goede kant op, we moeten verder zoeken in de ingeslagen richting
+				bestehoek[i] = hoek1;
 			}
 
 		} else {
@@ -403,16 +397,16 @@ void zoekhoeken(Punt pos)
 			len1 = arm2lengte(i, hoek1, &pos);
 			if (doornulheen(len0, len1)) {
 				// Benaderingen hebben verschillend teken: 1 van de 2 is de beste
-				bestehoek = eersteiskleiner(len0, len1) ? hoek0 : hoek1;
+				bestehoek[i] = eersteiskleiner(len0, len1) ? hoek0 : hoek1;
 				klaar = true;
 			} else if (eersteiskleiner(len0, len1)) {
 				// De vorige was dichter bij nul: we gaan de verkeerde kant op!
 				richting[i] = -richting[i];  // vanaf nu de andere kant op
-				bestehoek = hoek0;           // begin opnieuw vanaf beginwaarde
+				bestehoek[i] = hoek0;        // begin opnieuw vanaf beginwaarde
 				len1 = len0;                 // len0 was beter, gebruik als laatste benadering
 			} else {
-				// We moeten verder zoeken in deze richting
-				bestehoek = hoek1;
+				// Gaat de goede kant op, we moeten verder zoeken in deze richting
+				bestehoek[i] = hoek1;
 			}
 
 		}
@@ -424,54 +418,71 @@ void zoekhoeken(Punt pos)
 
 			// Doorzoeken zolang niet op de rand, en benaderingen met hetzelfde teken
 			do {
-				len0 = len1;                            // vorige onthouden
-				bestehoek += richting[i];               // nieuwe hoek poging
-				len1 = arm2lengte(i, bestehoek, &pos);  // nieuwe benadering van arm2
-			} while (bestehoek != randhoek && !doornulheen(len0, len1));
+				len0 = len1;                               // vorige onthouden
+				bestehoek[i] += richting[i];               // nieuwe hoek poging
+				len1 = arm2lengte(i, bestehoek[i], &pos);  // nieuwe benadering van arm2
+        bestegevonden = doornulheen(len0, len1);   // is de ene groter en de andere kleiner dan nul?
+			} while (!bestegevonden && bestehoek[i] != randhoek);
 
-			// We zitten nu of op de rand, of we hebben de beste benadering gevonden
-			if (bestehoek != randhoek)
-				// Niet op de rand, dus de benaderingen hebben verschillend teken:
-				// 1 van de 2 is de beste, check welke
-				if (eersteiskleiner(len0, len1))
-					bestehoek -= richting[i];
-		}
+			// We zitten nu of op de rand, en/of we hebben de beste benadering gevonden
+      if (bestegevonden) {
+        // Wel de kleinste pakken
+        if (eersteiskleiner(len0, len1))
+          bestehoek[i] -= richting[i];
+      } else
+        // Niet door nul heen, dus geen optimale benadering gevonden,
+        // dus niks aanpassen en meteen klaar
+        return false;
+		} // if !klaar
+	} // for i = [0..2]
 
-		// Nieuwe servo instelling
-		servoinstel[i].hoek = bestehoek;
-		// Voor het zetten van .pwm geen interrupts, want de waarde wordt gebruikt in de ISR
-		// en het is een int dus de ene byte kan veranderd zijn en de andere niet terwijl er
-		// net een interrupt afgaat (en het zijn sowieso twee statements)
-		#ifdef ARDUINO
-			noInterrupts();
-		#endif
-		servoinstel[i].pwm = servodata[i].pwmnul - (servodata[i].pwmrico * bestehoek);
-		servoinstel[i].pwm <<= 1;  // maal twee want timer resolutie is 0,5 us.
-		#ifdef ARDUINO
-			interrupts();
-		#endif
-	}
+  // Alledrie gelukt, dus nieuwe servo instelling
+  // Tijdens het zetten van .pwm geen interrupts, want de waarde wordt gebruikt
+  // in de ISR() en het is een int dus de ene byte kan veranderd zijn en de andere
+  // niet terwijl er dan net een interrupt afgaat (en het zijn sowieso 2 statements)
+  noInterrupts();
+  for (i = 0; i < 3; ++i) {
+    servoinstel[i].hoek = bestehoek[i];
+    servoinstel[i].pwm = servodata[i].pwmnul - (servodata[i].pwmrico * bestehoek[i]);
+    servoinstel[i].pwm <<= 1;  // maal twee, want de timer resolutie is 0,5 us.
+  }
+  interrupts();
+
 	#ifdef DEBUG
-		#ifdef ARDUINO
-			// Alleen op Arduino
-			Serial.print(pos.x, 0);
-			Serial.print(",");
-			Serial.print(pos.y, 0);
-			Serial.print(",");
-			Serial.print(pos.z, 0);
-			Serial.print(",");
-			Serial.print(servoinstel[0].hoek);
-			Serial.print(",");
-			Serial.print(servoinstel[1].hoek);
-			Serial.print(",");
-			Serial.println(servoinstel[2].hoek);
-		#else
-			// Voor simulatie, niet op een Arduino
-			printf("%.0f,%.0f,%.0f,%i,%i,%i\n",
-				pos.x, pos.y, pos.z,
-				servoinstel[0].hoek, servoinstel[1].hoek, servoinstel[2].hoek);
-		#endif
+		String s = "pos=("
+			+ String(pos.x, 0) + ","
+			+ String(pos.y, 0) + ","
+			+ String(pos.z, 0) + ") deg=("
+			+ servoinstel[0].hoek + ","
+			+ servoinstel[1].hoek + ","
+			+ servoinstel[2].hoek + ") pwm=("
+			+ (servoinstel[0].pwm >> 1) + ","
+			+ (servoinstel[1].pwm >> 1) + ","
+			+ (servoinstel[2].pwm >> 1) + ")";
+		Serial.println(s);
 	#endif
+  
+  // Alles klar
+  return true;
+}
+
+/**
+ * Beweeg de Deltarobot naar de beginpositie
+ * Dit is in het midden van het xy-vlak en op een zodanige hoogte dat het
+ * bereik in het xy-vlak maximaal is, dwz. zodat ie het verst opzij kan
+ */
+Punt beginpositie(void)
+{
+	Punt p = { 0.0f, 0.0f, 185.0f };
+	if (zoekhoeken(p))
+  	return p;
+  else {
+    // Ja, wat nu? Als ie de beginpositie al niet kan vinden, dan is er iets mis!
+    #ifdef DEBUG
+      Serial.println("Fout: kan de beginpositie niet vinden.");
+    #endif
+    while (true) ;
+  }
 }
 
 /**
@@ -481,6 +492,7 @@ void zoekhoeken(Punt pos)
  * param mmperstap: verplaatsing in mm per stap in de 3D-beweging (0 = in 1 keer)
  * param eerstnaarstart: eerst naar het startpunt bewegen, of is dit een voortzetting?
  */
+/* OUDE VERSIE
 void lijn(Punt startpunt, Punt eindpunt, unsigned int mmperstap, bool eerstnaarstart)
 {
 	float dx, dy, dz;
@@ -519,4 +531,54 @@ void lijn(Punt startpunt, Punt eindpunt, unsigned int mmperstap, bool eerstnaars
 
 	// Ga naar het eindpunt
 	zoekhoeken(eindpunt);  // eindig hier
+}
+*/
+
+/**
+ * NIEUWE VERSIE
+ * Beweeg de Deltarobot in een rechte lijn naar punt A
+ * param laatstepunt: van huidige bekende positie (x,y,z)
+ * param eindpunt: naar Punt A (x,y,z)
+ * param mmperstap: verplaatsing in mm per stap in de 3D-beweging (0 = in 1 keer)
+ * return: laatste positie die bereikt kon worden = nieuwe huidige positie
+ */
+Punt lijn(Punt laatstepunt, Punt eindpunt, unsigned int mmperstap)
+{
+  Punt volgendepunt = laatstepunt;
+  float dx, dy, dz;
+  unsigned int stappen = 0;
+
+  if (mmperstap) {  // begrensde snelheid
+    // verschilvector
+    dx = eindpunt.x - laatstepunt.x;
+    dy = eindpunt.y - laatstepunt.y;
+    dz = eindpunt.z - laatstepunt.z;
+    // aantal stappen afhankelijk van lengte van verschilvector, 0.5 voor afronding
+    stappen = 0.5 + sqrt(dx*dx + dy*dy + dz*dz) / mmperstap;
+    if (stappen) {  // 1 of meer stappen
+      if (stappen != 1) {  // 2 of meer stappen
+        // Bereken verplaatsing per stap in x/y/z-richting
+        dx /= stappen;
+        dy /= stappen;
+        dz /= stappen;
+      }
+      --stappen;  // gebruik alleen tussenpunten, dus 1 minder dan aantal stappen
+    }
+  }
+
+  // Maak de beweging met tussenstappen, indien gevraagd en nodig
+  while (stappen) {
+    // Probeer naar het volgende tussenpunt te gaan
+    volgendepunt.x += dx;
+    volgendepunt.y += dy;
+    volgendepunt.z += dz;
+    if (zoekhoeken(volgendepunt))
+      laatstepunt = volgendepunt;
+    else
+      return laatstepunt;
+    --stappen;
+  }
+
+  // Nu nog naar het eindpunt
+  return (zoekhoeken(eindpunt) ? eindpunt : laatstepunt);
 }
