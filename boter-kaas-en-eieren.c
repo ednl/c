@@ -19,14 +19,15 @@ typedef struct _Rijinfo {
 } Rijinfo;
 Rijinfo rij[8];
 
-char scr[3][80];
+#define COLS 71
+char scr[LENGTE][COLS + 1];
 
 void reset();
 int wieisaanzet();
 void waarderen(int*, int, int);
 int meestepunten(int);
 void zet(int);
-void printbord();
+void printbord(int);
 int gewonnen();
 
 int main()
@@ -34,29 +35,26 @@ int main()
 	int i, j, k, wie;
 	srand(time(NULL));
 
-	for (i = 0; i < 10; ++i) {
-		for (j = 0; j < 3; ++j)
-			for (k = 0; k < 80; ++k)
-				scr[j][k] = '\0';
+	for (i = 0; i < 100; ++i) {
+		// clear screen buffer
+		for (j = 0; j < LENGTE; ++j) {
+			for (k = 0; k < COLS; ++k)
+				scr[j][k] = ' ';
+			scr[j][COLS] = '\0';
+		}
 		for (j = 0; j < 2; ++j) {
+			k = j * 9;
 			reset();
 			while (beurt < VAKKEN) {
 				zet(meestepunten(wieisaanzet()));
-				printbord();
-				printf("\n");
-
-				wie = gewonnen();
-				if (wie) {
-					if (wie == KRUISJE)
-						printf("Kruisje");
-					else
-						printf("Rondje");
-					printf(" wint na de %ie beurt\n\n", beurt);
+				printbord(k++);
+				if (gewonnen())
 					beurt = VAKKEN;
-				} else if (beurt == VAKKEN)
-					printf("Geen winnaar\n\n");
 			}
 		}
+		for (j = 0; j < LENGTE; ++j)
+			printf("%s\n", scr[j]);
+		printf("\n");
 	}
 	return 0;
 }
@@ -166,18 +164,20 @@ void zet(int vak)
 	}
 }
 
-void printbord()
+void printbord(int pos)
 {
-	int x, y;
+	int x, y, i, j;
 	for (y = MAXCOOR; y >= 0; --y) {
-		for (x = 0; x <= MAXCOOR; ++x)
+		i = MAXCOOR - y;
+		for (x = 0; x <= MAXCOOR; ++x) {
+			j = x + pos * (LENGTE + 1);
 			switch (bord[x + y * LENGTE])
 			{
-				case KRUISJE: printf("x"); break;
-				case RONDJE : printf("o"); break;
-				default     : printf("."); break;
+				case KRUISJE: scr[i][j] = 'x'; break;
+				case RONDJE : scr[i][j] = 'o'; break;
+				default     : scr[i][j] = '.'; break;
 			}
-		printf("\n");
+		}
 	}
 }
 
