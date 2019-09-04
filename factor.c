@@ -3,9 +3,10 @@
 //  factor
 //
 //  Compile as: gcc -lm -Ofast -std=c99 -pedantic -o factor factor.c
+//          or: clang -std=gnu17 -pedantic -Weverything -Oz -o factor factor.c
 //
-//  Created by E. Dronkert on 2011-08-27, last update 2017-05-21.
-//  Copyright 2011-2017 E. Dronkert. All rights reserved.
+//  Created by E. Dronkert on 2011-08-27, last update 2019-09-04.
+//  Copyright 2011-2019 E. Dronkert. All rights reserved.
 //
 
 #include <stdio.h>
@@ -14,11 +15,23 @@
 #include <fenv.h>
 
 #define introot(x) ((unsigned long long)llrintl(sqrtl((long double)(x))))
-void printfactor(unsigned long long, unsigned long long, unsigned int*, unsigned long long*);
+
+void printfactor(unsigned long long number, unsigned long long primefactor, unsigned int* power, unsigned long long* root)
+{
+	printf("%llu", primefactor);
+	if (*power > 1) {
+		printf("^%u", *power);
+	}
+	if (number > 1) {
+		printf(" x ");
+	}
+	*power = 0;
+	*root = introot(number);
+}
 
 int main (int argc, const char* argv[])
 {
-	// Round down using 
+	// Round down when using rint()
 	fesetround(FE_DOWNWARD);
 
 	unsigned long long n = 0, r = 0, p = 3;
@@ -88,19 +101,9 @@ int main (int argc, const char* argv[])
 	}
 
 	// Summary
-	printf("\n\tTotal number of factors: %u\n\tNumber of unique prime factors: %u\n\tCalculation time: %lf s\n\n", factotal, facprime, (double)(clock() - t) / CLOCKS_PER_SEC);
+	printf("\n\tTotal number of factors: %u\n"\
+		"\tNumber of unique prime factors: %u\n"\
+		"\tCalculation time: %lf s\n\n",
+		factotal, facprime, (double)(clock() - t) / CLOCKS_PER_SEC);
 	return 0;
-}
-
-void printfactor(unsigned long long number, unsigned long long primefactor, unsigned int* power, unsigned long long* root)
-{
-	printf("%llu", primefactor);
-	if (*power > 1) {
-		printf("^%u", *power);
-	}
-	if (number > 1) {
-		printf(" x ");
-	}
-	*power = 0;
-	*root = introot(number);
 }
