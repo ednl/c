@@ -11,15 +11,19 @@
 #include <stdio.h>
 #include <time.h>
 #include <math.h>
+#include <fenv.h>
 
-#define introot(x) ((unsigned long long int)floorl(sqrtl((long double)(x))))
-void printfactor(unsigned long long int number, unsigned long long int primefactor, unsigned int* power, unsigned long long int* root);
+#define introot(x) ((unsigned long long)llrintl(sqrtl((long double)(x))))
+void printfactor(unsigned long long, unsigned long long, unsigned int*, unsigned long long*);
 
-int main (int argc, const char * argv[])
+int main (int argc, const char* argv[])
 {
-	time_t t = clock();
-	unsigned long long int n = 0, r = 0, p = 3;
+	// Round down using 
+	fesetround(FE_DOWNWARD);
+
+	unsigned long long n = 0, r = 0, p = 3;
 	unsigned int q = 0, factotal = 0, facprime = 0;
+	clock_t t = clock();
 
 	// Get integer n as command line argument, reset on fail, set r = integer root of n, print n
 	if (argc > 1) {
@@ -88,7 +92,7 @@ int main (int argc, const char * argv[])
 	return 0;
 }
 
-void printfactor(unsigned long long int number, unsigned long long int primefactor, unsigned int* power, unsigned long long int* root)
+void printfactor(unsigned long long number, unsigned long long primefactor, unsigned int* power, unsigned long long* root)
 {
 	printf("%llu", primefactor);
 	if (*power > 1) {
