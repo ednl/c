@@ -9,7 +9,7 @@ void UART_putchar ( char  );
 void UART_puts    ( char* );
 // New prototypes
 char UART_getchar ( void  );
-int  UART_getsn   ( char[], int );
+int  UART_getline ( char[], int );
 
 // char UART_getchar
 // Wait forever for a character from the serial port.
@@ -22,7 +22,7 @@ char UART_getchar(void)
 	return c;
 }
 
-// int UART_getsn
+// int UART_getline
 // Wait for ASCII text from serial port until Enter pressed or maxlen reached.
 //   Doesn't include CR/LF, if any. Solves buffer overflow potential
 //   of UART_gets(), handles CR+LF, echoes only printable characters.
@@ -30,7 +30,7 @@ char UART_getchar(void)
 // Args:   char s[]      array of at least maxlen chars
 //         int  maxlen   at most maxlen-1 chars will be read, 1 null char added
 // Return: strlen(s)
-int UART_getsn(char s[], int maxlen)
+int UART_getline(char s[], int maxlen)
 {
 	if (!s || maxlen <= 0)     // check for bogus args
 		return 0;
