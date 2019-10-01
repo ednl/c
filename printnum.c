@@ -53,9 +53,7 @@ unsigned char UART_putnum(INT32U num, unsigned char base)
 
 	// Print every digit and return count 1..32
 	while (i)
-		while (USART_GetFlagStatus(USART2, USART_FLAG_TXE) == RESET)
-			;                            // wait until tx buffer empty
-		USART_SendData(USART2, s[--i]);  // print array in reverse
+		UART_putchar(s[--i]);
 	return len;                          // return number of digits printed
 }
 */
