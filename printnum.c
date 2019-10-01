@@ -6,53 +6,57 @@ unsigned char printnum(uint32_t, unsigned char);
 // Print positive integer in base 2..16
 // Authour: E. Dronkert, HU Electrical Engineering 2018-2022
 // Arg: num  = value of the number to be printed, unsinged int
-//      base = base of the printed number, min=2 max=16
-// Ret: number of characters printed (strlen)
+//      base = base of the printed number, 2..16
+// Ret: number of digits printed (strlen), 0..32
 unsigned char printnum(uint32_t num, unsigned char base)
 {
 	static char *digit =
-		"0123456789ABCDEF";    // 16 different digits for base 16
-	char s[32];                // uint32_t in base 2 has 32 digits
-	unsigned char len, i = 0;  // position counter
+		"0123456789ABCDEF";              // 16 different digits for base 16
+	char s[32];                          // uint32_t in base 2 has 32 digits
+	unsigned char len, i = 0;            // position counter
 
-	// stop if base is meaningless or unsupported
+	// Stop here if base is meaningless or unsupported
 	if (base < 2 || base > 16)
-		return 0;  // nothing printed
+		return 0;                        // nothing printed
 
-	do {                             // at least one loop (in case num == 0)
-		s[i++] = digit[num % base];  // fill array with number in reverse
-		num /= base;                 // factor the base out ("shift right")
-	} while (num);                   // until nothing left
+	// Do at least one loop (in case num == 0)
+	do {
+		s[i++] = digit[num % base];      // fill array with number in reverse
+		num /= base;                     // factor the base out ("shift right")
+	} while (num);                       // until nothing left
+	len = i;                             // remember the digit count
 
-	len = i;                   // remember the character count
-	while (i)                  // for every character (min=1, max=32)
-		printf("%c", s[--i]);  // print array in reverse
-	return len;                // return number of characters printed
+	// Print every digit and return count 1..32
+	while (i)
+		printf("%c", s[--i]);            // print array in reverse
+	return len;                          // return number of digits printed
 }
 /*
 // Version for STM32F4 ////////////////////////////////////////////////////////
 unsigned char UART_putnum(INT32U num, unsigned char base)
 {
 	static char *digit =
-		"0123456789ABCDEF";    // 16 different digits for base 16
-	char s[32];                // INT32U in base 2 has max 32 digits
-	unsigned char len, i = 0;  // position counter
+		"0123456789ABCDEF";              // 16 different digits for base 16
+	char s[32];                          // uint32_t in base 2 has 32 digits
+	unsigned char len, i = 0;            // position counter
 
-	// stop if base is meaningless or unsupported
+	// Stop here if base is meaningless or unsupported
 	if (base < 2 || base > 16)
-		return 0;  // nothing printed
+		return 0;                        // nothing printed
 
-	do {                             // at least one loop (in case num == 0)
-		s[i++] = digit[num % base];  // fill array with number in reverse
-		num /= base;                 // factor the base out ("shift right")
-	} while (num);                   // until nothing left
+	// Do at least one loop (in case num == 0)
+	do {
+		s[i++] = digit[num % base];      // fill array with number in reverse
+		num /= base;                     // factor the base out ("shift right")
+	} while (num);                       // until nothing left
+	len = i;                             // remember the digit count
 
-	len = i;     // remember the character count
-	while (i)    // for every character (min=1, max=32)
+	// Print every digit and return count 1..32
+	while (i)
 		while (USART_GetFlagStatus(USART2, USART_FLAG_TXE) == RESET)
-			;    // wait until tx buffer empty
+			;                            // wait until tx buffer empty
 		USART_SendData(USART2, s[--i]);  // print array in reverse
-	return len;  // return number of characters printed
+	return len;                          // return number of digits printed
 }
 */
 
