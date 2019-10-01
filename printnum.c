@@ -4,7 +4,7 @@
 unsigned char printnum(uint32_t, unsigned char);
 
 // Print positive integer in base 2..16
-// Authour: E. Dronkert, HU Electrical Engineering 2018-2022
+// Author: E. Dronkert, HU Electrical Engineering 2018-2022
 // Arg: num  = value of the number to be printed, unsinged int
 //      base = base of the printed number, 2..16
 // Ret: number of digits printed (strlen), 0..32
