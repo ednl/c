@@ -7,12 +7,12 @@
 
 #define NAME 64
 #define SIZE 250
-#define LOOP 2
 
 ////////// Globals ////////////////////////////////////////////////////////////
 
 static char *name[SIZE];
-static unsigned char ord[SIZE], lot[SIZE], stk[SIZE], sp = 0, size = 0;
+static unsigned char ord[SIZE], lot[SIZE], stk[SIZE];
+static unsigned char sp = 0, size = 0, allowloop = 1;
 
 ////////// Function Declarations //////////////////////////////////////////////
 
@@ -57,7 +57,8 @@ unsigned char readfile(void)
 		while (lines < SIZE && getline(&name[lines], &n, fp) != -1)
 			push(lines++);
 		fclose(fp);
-	}
+	} else
+		printf("Error: file not found (lot.txt)\n");
 	return lines;
 }
 
@@ -125,24 +126,47 @@ void draw(void)
 
 	ord[0] = p = pop();
 	if (p == 255) {
-		printf("error draw:pop\n");
+		printf("Error: draw::pop(0)\n");
 		return;
 	}
-	for (i = 0; i < size - 1; ++i) {
-		if (i - loopstart == LOOP && i <= size - LOOP - 2)
-			push(p);
 
-		if (i - loopstart >= LOOP && i == size - LOOP - 2)
+	for (i = 0; i < size - 1; ++i) {
+
+		if (i - loopstart == allowloop && i <= size - allowloop - 2) {
+			if (!push(p)) {
+				printf("Error: draw::push(%u)\n", i);
+				return;
+			}
+		}
+
+		if (i - loopstart >= allowloop && i == size - allowloop - 2) {
+
 			lot[i] = q = del(p);
-		else
+			if (q == 255) {
+				printf("Error: draw::del(%u)\n", i);
+				return;
+			}
+
+		} else {
+
 			lot[i] = q = pop();
+			if (q == 255) {
+				printf("Error: draw::pop(%u)\n", i);
+				return;
+			}
+		}
 
 		if (p == q) {
 			ord[i + 1] = p = pop();
+			if (p == 255) {
+				printf("Error: draw::pop(%u)\n", i + 1);
+				return;
+			}
 			loopstart = i + 1;
 		} else
 			ord[i + 1] = lot[i];
 	}
+
 	lot[size - 1] = p;
 }
 
@@ -157,13 +181,14 @@ void print(void)
 			m = n;
 
 	for (i = 0; i < size; ++i) {
-		printf("%3u. ", i + 1);
+
 		s = buf;
 		t = name[ord[i]];
 		while (*t && *t != '\r' && *t != '\n')
 			*s++ = *t++;
 		*s = '\0';
 		printf("%*s -> ", m, buf);
+
 		s = buf;
 		t = name[lot[i]];
 		while (*t && *t != '\r' && *t != '\n')
@@ -175,9 +200,12 @@ void print(void)
 
 ////////// Main ///////////////////////////////////////////////////////////////
 
-int main(void)
+int main(int argc, char *argv[])
 {
 	unsigned char i;
+
+	if (argc > 1)
+		allowloop = atoi(argv[1]);
 
 	init();
 	if ((size = readfile())) {
