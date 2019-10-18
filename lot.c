@@ -1,14 +1,9 @@
 ////////// Includes, Defines //////////////////////////////////////////////////
 
-// #ifdef __STDC_ALLOC_LIB__
-// #define __STDC_WANT_LIB_EXT2__ 1
-// #else
-// #define _POSIX_C_SOURCE 200809L
-// #endif
-
 #include <stdio.h>
 #include <stdlib.h>
 #include <time.h>
+#include <string.h>
 
 #define NAME 64
 #define SIZE 250
@@ -21,15 +16,50 @@ static unsigned char ord[SIZE], lot[SIZE], stk[SIZE], sp = 0, size = 0;
 
 ////////// Function Declarations //////////////////////////////////////////////
 
+void init(void);
 unsigned char swap(unsigned char, unsigned char);
 unsigned char push(unsigned char);
 unsigned char pop(void);
 unsigned char del(unsigned char);
-void init(void);
 void draw(void);
 void print(void);
 
 ////////// Function Definitions ///////////////////////////////////////////////
+
+// Initialize random number generator and global arrays
+void init(void)
+{
+	unsigned char i;
+
+	#if defined(__APPLE__) && defined(__MACH__)
+	srandomdev();
+	#elif defined(__linux__)
+	srandom((unsigned int)time(NULL));
+	#else
+	srand((unsigned int)time(NULL));
+	#endif
+	for (i = 0; i < SIZE; ++i) {
+		name[i] = NULL;
+		ord[i] = 0;
+		lot[i] = 0;
+		stk[i] = 0;
+	}
+}
+
+// Read data from file, fill stack
+unsigned char readfile(void)
+{
+	unsigned char lines = 0;
+	FILE *fp;
+	size_t n = 0;
+
+	if ((fp = fopen("lot.txt", "r")) != NULL) {
+		while (lines < SIZE && getline(&name[lines], &n, fp) != -1)
+			push(lines++);
+		fclose(fp);
+	}
+	return lines;
+}
 
 // Swap two elements on the stack
 // Arg: index of the elements to swap
@@ -82,44 +112,10 @@ unsigned char del(unsigned char n)
 
 	for (i = 0; i < sp; ++i)     // traverse whole stack
 		if (stk[i] == n) {       // if element found
-			stk[i] = stk[--sp];  // adjust stack pointer, save (previous) top element
+			stk[i] = stk[--sp];  // adjust stack pointer, save top element
 			return n;            // ok
 		}
 	return 255;  // error
-}
-
-// Initialize random number generator and stack
-void init(void)
-{
-	unsigned char i;
-
-	#if defined(__APPLE__) && defined(__MACH__)
-	srandomdev();
-	#elif defined(__linux__)
-	srandom((unsigned int)time(NULL));
-	#else
-	srand((unsigned int)time(NULL));
-	#endif
-	for (i = 0; i < SIZE; ++i) {
-		name[i] = NULL;
-		ord[i] = 0;
-		lot[i] = 0;
-		stk[i] = 0;
-	}
-}
-
-// Read data from file, fill stack
-unsigned char readfile(void)
-{
-	unsigned char lines = 0;
-	FILE *fp;
-	size_t n = 0;
-
-	if ((fp = fopen("lot.txt", "r")) != NULL) {
-		while (lines < SIZE && getline(&name[lines], &n, fp) != -1)
-			push(lines++);
-	}
-	return lines;
 }
 
 // Pull a straw for everyone
@@ -128,29 +124,53 @@ void draw(void)
 	unsigned char i, loopstart = 0, p, q;
 
 	ord[0] = p = pop();
-	for (i = 0; i < SIZE - 1; ++i) {
-		if (i - loopstart == LOOP && i <= SIZE - LOOP - 2)
+	if (p == 255) {
+		printf("error draw:pop\n");
+		return;
+	}
+	for (i = 0; i < size - 1; ++i) {
+		if (i - loopstart == LOOP && i <= size - LOOP - 2)
 			push(p);
-		if (i - loopstart >= LOOP && i == SIZE - LOOP - 2) {
+
+		if (i - loopstart >= LOOP && i == size - LOOP - 2)
 			lot[i] = q = del(p);
-		} else
+		else
 			lot[i] = q = pop();
+
 		if (p == q) {
 			ord[i + 1] = p = pop();
 			loopstart = i + 1;
 		} else
 			ord[i + 1] = lot[i];
 	}
-	lot[SIZE - 1] = p;
+	lot[size - 1] = p;
 }
 
 // Output result
 void print(void)
 {
-	unsigned char i;
+	char buf[NAME], *s, *t;
+	unsigned char i, n, m = 0;
 
-	for (i = 0; i < SIZE; ++i)
-		printf("%10s -> %-10s\n", name[ord[i]], name[lot[i]]);
+	for (i = 0; i < size; ++i)
+		if ((n = (unsigned char)strlen(name[i])) > m)
+			m = n;
+
+	for (i = 0; i < size; ++i) {
+		printf("%3u. ", i + 1);
+		s = buf;
+		t = name[ord[i]];
+		while (*t && *t != '\r' && *t != '\n')
+			*s++ = *t++;
+		*s = '\0';
+		printf("%*s -> ", m, buf);
+		s = buf;
+		t = name[lot[i]];
+		while (*t && *t != '\r' && *t != '\n')
+			*s++ = *t++;
+		*s = '\0';
+		printf("%-*s\n", m, buf);
+	}
 }
 
 ////////// Main ///////////////////////////////////////////////////////////////
@@ -158,12 +178,13 @@ void print(void)
 int main(void)
 {
 	unsigned char i;
+
 	init();
 	if ((size = readfile())) {
+		draw();
+		print();
 		for (i = 0; i < size; ++i)
-			printf("%u %s", i, name[i]);
-		//draw();
-		//print();
+			free(name[i]);
 	}
 	return 0;
 }

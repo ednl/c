@@ -1,0 +1,8 @@
+.vscode/**
+*.dSYM/**
+factor
+gameoflife
+lot
+printnum
+tictactoe
+uart
