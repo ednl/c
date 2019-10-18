@@ -5,7 +5,6 @@
 #include <time.h>
 #include <string.h>
 
-#define NAME 64
 #define SIZE 250
 
 ////////// Globals ////////////////////////////////////////////////////////////
@@ -173,7 +172,7 @@ void draw(void)
 // Output result
 void print(void)
 {
-	char buf[NAME], *s, *t;
+	char buf[255], *s, *t;
 	unsigned char i, n, m = 0;
 
 	for (i = 0; i < size; ++i)
@@ -184,15 +183,21 @@ void print(void)
 
 		s = buf;
 		t = name[ord[i]];
-		while (*t && *t != '\r' && *t != '\n')
+		n = 0;
+		while (*t && *t != '\r' && *t != '\n' && n < 254) {
 			*s++ = *t++;
+			++n;
+		}
 		*s = '\0';
 		printf("%*s -> ", m, buf);
 
 		s = buf;
 		t = name[lot[i]];
-		while (*t && *t != '\r' && *t != '\n')
+		n = 0;
+		while (*t && *t != '\r' && *t != '\n' && n < 254) {
 			*s++ = *t++;
+			++n;
+		}
 		*s = '\0';
 		printf("%-*s\n", m, buf);
 	}
