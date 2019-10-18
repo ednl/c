@@ -2,7 +2,7 @@
 #include <stdlib.h>
 #include <time.h>
 
-#define LENGTH  5
+#define LENGTH  3
 
 #define EMPTY    0
 #define CROSS    1
