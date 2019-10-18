@@ -1,17 +1,23 @@
 ////////// Includes, Defines //////////////////////////////////////////////////
 
+// #ifdef __STDC_ALLOC_LIB__
+// #define __STDC_WANT_LIB_EXT2__ 1
+// #else
+// #define _POSIX_C_SOURCE 200809L
+// #endif
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <time.h>
 
 #define NAME 64
-#define SIZE 200
+#define SIZE 250
 #define LOOP 2
 
 ////////// Globals ////////////////////////////////////////////////////////////
 
-static const char *name[SIZE];
-static unsigned char size, ord[SIZE], lot[SIZE], stk[SIZE], sp = 0;
+static char *name[SIZE];
+static unsigned char ord[SIZE], lot[SIZE], stk[SIZE], sp = 0, size = 0;
 
 ////////// Function Declarations //////////////////////////////////////////////
 
@@ -32,7 +38,7 @@ unsigned char swap(unsigned char i, unsigned char j)
 {
 	unsigned char t;
 
-	if (i != j && i < SIZE && j < SIZE) {
+	if (i != j && i < size && j < size) {
 		t = stk[i];
 		stk[i] = stk[j];
 		stk[j] = t;
@@ -59,8 +65,8 @@ unsigned char pop(void)
 {
 	unsigned char k;
 
-	if ((k = sp)) {      // remember current stack size
-		if (--sp)        // decrease stack size, check if not zero
+	if ((k = sp)) {      // check if not zero, remember current stack pointer
+		if (--sp)        // adjust stack pointer, check if not zero
 			swap(random() % k, sp);  // swap a random element to the top
 		return stk[sp];  // return top element
 	}
@@ -75,9 +81,9 @@ unsigned char del(unsigned char n)
 	unsigned char i;
 
 	for (i = 0; i < sp; ++i)     // traverse whole stack
-		if (stk[i] == n) {            // if element found
-			stk[i] = stk[--sp];  // overwrite with top element & lower stack size
-			return n;                 // ok
+		if (stk[i] == n) {       // if element found
+			stk[i] = stk[--sp];  // adjust stack pointer, save (previous) top element
+			return n;            // ok
 		}
 	return 255;  // error
 }
@@ -94,8 +100,26 @@ void init(void)
 	#else
 	srand((unsigned int)time(NULL));
 	#endif
-	for (i = 0; i < SIZE; ++i)
-		push(i);
+	for (i = 0; i < SIZE; ++i) {
+		name[i] = NULL;
+		ord[i] = 0;
+		lot[i] = 0;
+		stk[i] = 0;
+	}
+}
+
+// Read data from file, fill stack
+unsigned char readfile(void)
+{
+	unsigned char lines = 0;
+	FILE *fp;
+	size_t n = 0;
+
+	if ((fp = fopen("lot.txt", "r")) != NULL) {
+		while (lines < SIZE && getline(&name[lines], &n, fp) != -1)
+			push(lines++);
+	}
+	return lines;
 }
 
 // Pull a straw for everyone
@@ -133,15 +157,13 @@ void print(void)
 
 int main(void)
 {
-	char buf[NAME];
-	
-	FILE *fp = fopen();
-	while (fgets(buf, sizeof buf, fp) != NULL) {
-		//
-	}
-
+	unsigned char i;
 	init();
-	draw();
-	print();
+	if ((size = readfile())) {
+		for (i = 0; i < size; ++i)
+			printf("%u %s", i, name[i]);
+		//draw();
+		//print();
+	}
 	return 0;
 }
