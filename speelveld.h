@@ -19,5 +19,5 @@ extern const VELD_GPS veld_zoek[];  // mogelijke locaties van de verstopper
 
 ////////// Function Declarations //////////////////////////////////////////////
 
-unsigned int veld_binnen   (VELD_PGPS);  // check of een punt op het speelveld is, of erbuiten
-VELD_GPS     veld_zoekpunt (void);       // vraag de (volgende) positie van de verstopper
+unsigned int veld_binnen (VELD_PGPS);  // check of een punt op het speelveld is, of erbuiten
+VELD_GPS     veld_ikzoek (void);       // vraag de (volgende) positie van de verstopper
