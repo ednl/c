@@ -38,7 +38,7 @@ int main(void)
 			ticket[j] = ticket[--i];
 		}
 
-		// New game
+		// End of the raffle
 		printf("\n");
 	}
 	return 0;
