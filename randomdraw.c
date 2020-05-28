@@ -22,7 +22,13 @@ int main(void)
 	unsigned int i, n, raffles = 10, ticket[LEN];
 
 	// Seed random number generator.
+	#if defined(__APPLE__) && defined(__MACH__)
+	srandomdev();
+	#elif defined(__linux__)
+	srandom(time(NULL));
+	#else
 	srand(time(NULL));
+	#endif
 
 	// Do a certain number of complete raffles.
 	while (raffles--)
