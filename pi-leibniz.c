@@ -38,10 +38,19 @@
 // Iterative sum:
 // sum[0..n+1] = sum[0..n] + s[n+1]       (4)
 
-// So, the new sum is the old sum plus the new term (eq 4),
-// where the new term is 1 over the new divisor (eq 3),
-// where the new divisor is the old divisor plus 4 times the new n (eq 2),
-// and the first divisor is 3/8 (eq 1).
+// So, the new sum is the old sum plus the new term (eq. 4),
+// where the new term is 1 over the new divisor (eq. 3),
+// where the new divisor is the old divisor plus 4 times the new n (eq. 2),
+// and the first divisor is 3/8 (eq. 1).
+
+// Variable substitution:
+// m[n]   = 4(n+1)                        (5)
+// m[0]   = 4(0+1)
+//        = 4                             (6)
+// m[n+1] = 4((n+1)+1)
+//        = 4n+8
+//        = 4(n+1) + 4
+//        = m[n] + 4                      (7)
 
 #include <stdio.h>
 #include <tgmath.h>  // atanl
@@ -57,8 +66,8 @@ int main(void)
 	printf("  pi = %25.21Lf\n", pi);
 
 	// Initial values.
-	unsigned long long int n = 0;
-	long double prev = -1, sum = 0, div = 3.0L / 8;
+	unsigned long long int m = 4;                    // see eq. 6
+	long double prev = -1, sum = 0, div = 3.0L / 8;  // see eq. 1
 
 	// The divisor is a floating point value and will always keep growing
 	// (even if ++n * 4 overflows) or stay the same (if ++n overflows,
@@ -75,13 +84,14 @@ int main(void)
 
 	while (prev < sum) {    // while we're getting closer
 		prev = sum;         // remember the previous sum
-		sum += 1.0L / div;  // calculate the new sum
-		div += ++n * 4u;    // first increase n, then multiply by 4 (avoid signed integer overflow)
+		sum += 1.0L / div;  // new sum, see eqs. 4, 3
+		div += m;           // new divisor, see eqs. 2, 5
+		m += 4u;            // new counter, see eq. 7
 	}
 
 	printf(" sum = %25.21Lf\n", sum);
 	printf(" err = %+25.21Lf\n", sum - pi);
-	printf("   n =   %llu\n", n);
+	printf("   m =   %llu\n", m);
 	printf(" div =   %.3Lf\n", div);
 	printf("part = %25.21Lf\n", 1.0L / div);
 	return 0;
