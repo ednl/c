@@ -73,7 +73,7 @@ int main(void)
 	// notice the new term, or the new term will be zero. So then, the
 	// previous sum and the new sum will be the same and the loop ends.
 
-	while (prev < sum) {
+	while (prev < sum) {    // while we're getting closer
 		prev = sum;         // remember the previous sum
 		sum += 1.0L / div;  // calculate the new sum
 		div += ++n * 4u;    // first increase n, then multiply by 4 (avoid signed integer overflow)
