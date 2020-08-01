@@ -7,7 +7,7 @@
 // Make the sum monotonically rising instead of alternating,
 // for faster approximation:
 // pi = 4 sum[0..k]((-1)^k / (2k+1))      (Leibniz)
-//    = 4 sum[0..n](1/(4n+1) - 4/(4n+3))  (combine 2 terms)
+//    = 4 sum[0..n](1/(4n+1) - 1/(4n+3))  (combine 2 terms)
 //    = 4 sum[0..n](2 / ((4n+1)(4n+3)))   (combine the fractions)
 //    = 4 sum[0..n](2 / d[n])             where: d[n] = (4n+1)(4n+3)
 //    = sum[0..n](8 / d[n])               (bring the factor in the sum)
