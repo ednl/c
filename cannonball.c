@@ -34,18 +34,18 @@ static int next_v(void)
 int main(void)
 {
     unsigned long long prev = 0;
-    int ok_a, ok_v;
+    int ok_a, ok_v, found;
 
     printf("CANNONBALL NUMBERS FOR N-POLYGONAL STACKING\n");
-    printf("where n >= 3 and any cannonball number <= %llu\n",  ULLONG_MAX);
+    printf("where n >= 3 and any number <= %llu\n",  ULLONG_MAX);
     printf("\n");
 
     while (polygon > prev) {
-        printf("%llu:", polygon);
         a0 = v0 = 1;
         ac = vc = aa = va = polygon;
         vv = polygon + 1;
         ok_a = ok_v = 1;
+        found = 0;
         while (ok_v && ok_a) {
             while (aa != vv && ok_v && ok_a) {
                 while (aa < vv && ok_a && ok_v)
@@ -54,11 +54,17 @@ int main(void)
                     ok_v = next_v();
             }
             if (aa == vv) {
+                if (!found) {
+                    printf("%llu:", polygon);
+                }
                 printf(" %llu", vv);
                 ok_a = next_a();
+                ++found;
             }
         }
-        printf("\n");
+        if (found) {
+            printf(" (%i)\n", found);
+        }
         prev = polygon++;
     }
     return 0;
