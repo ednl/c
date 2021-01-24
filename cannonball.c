@@ -1,44 +1,65 @@
-#include <stdio.h>
+// CANNONBALL NUMBERS
+// For a square ("polygon = 4") stacking of cannonballs, is
+// there a single square with the same number of cannonballs?
+// Investigate for polygons >= 3.
 
-// static long long known[] = {
-//     3, 4, 5, 6, 8, 10, 11, 14, 17, 20, 23, 26, 29, 30, 32, 35,
-//     38, 41, 43, 50, 88, 145, 276, 322, 823, 2378, 2386, 31265
-// };
+// Via Numberphile and Matt Parker:
+// https://youtu.be/q6L06pyt9CA
+// https://www.numberphile.com/cannon-ball-numbers
+
+#include <stdio.h>
+#include <limits.h>
+
+static unsigned long long a0, ac, aa, v0, vc, va, vv, polygon = 3;
+
+static int next_a(void)
+{
+    unsigned long long prev = aa;
+    a0 += 2;
+    ac += polygon;
+    aa += ac - a0;
+    return aa > prev;
+}
+
+static int next_v(void)
+{
+    unsigned long long prev = vv;
+    v0 += 2;
+    vc += polygon;
+    va += vc - v0;
+    vv += va;
+    return vv > prev;
+}
 
 int main(void)
 {
-    // size_t i, n = sizeof known / sizeof *known;
-    // for (i = 0; i < n; ++i) {
-    //     polygon = known[i];
-    unsigned long long ap, ac, aa, vp, vc, va, vv, polygon, pa, pv;
+    unsigned long long prev = 0;
+    int ok_a, ok_v;
 
-    polygon = 3;
-    while (1) {
-        printf("%llu", polygon);
-        ap = vp = 1;
+    printf("CANNONBALL NUMBERS FOR N-POLYGONAL STACKING\n");
+    printf("where n >= 3 and any cannonball number <= %llu\n",  ULLONG_MAX);
+    printf("\n");
+
+    while (polygon > prev) {
+        printf("%llu:", polygon);
+        a0 = v0 = 1;
         ac = vc = aa = va = polygon;
         vv = polygon + 1;
-        do {
-            pa = aa - 1;
-            while (vv > aa && aa > pa) {
-                ap += 2;
-                ac += polygon;
-                pa = aa;
-                aa += ac - ap;
+        ok_a = ok_v = 1;
+        while (ok_v && ok_a) {
+            while (aa != vv && ok_v && ok_a) {
+                while (aa < vv && ok_a && ok_v)
+                    ok_a = next_a();
+                while (vv < aa && ok_v && ok_a)
+                    ok_v = next_v();
             }
-            pv = vv - 1;
-            while (aa > vv && vv > pv) {
-                vp += 2;
-                vc += polygon;
-                va += vc - vp;
-                pv = vv;
-                vv += va;
+            if (aa == vv) {
+                printf(" %llu", vv);
+                ok_a = next_a();
             }
-        } while (aa != vv && aa > pa && vv > pv);
-        if (aa == vv)
-            printf(" %llu\n", vv);
-
-        ++polygon;
+        }
+        printf("\n");
+        prev = polygon++;
     }
     return 0;
 }
