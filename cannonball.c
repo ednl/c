@@ -1,9 +1,10 @@
 // CANNONBALL NUMBERS
-// For a square ("polygon = 4") stacking of cannonballs, is
-// there a single square with the same number of cannonballs?
-// Investigate for polygons >= 3.
+// https://en.wikipedia.org/wiki/Cannonball_problem
+// For a stacking of cannonballs in a square pyramid ("polygon = 4"),
+// is there a single square with holds the same number of cannonballs?
+// In other words: which square pyramidal number is square?
 
-// Via Numberphile and Matt Parker:
+// Numberphile and Matt Parker: same, but now polygon >= 3
 // https://youtu.be/q6L06pyt9CA
 // https://www.numberphile.com/cannon-ball-numbers
 
@@ -36,8 +37,9 @@ int main(void)
     unsigned long long prev = 0;
     int ok_a, ok_v, found;
 
-    printf("CANNONBALL NUMBERS FOR N-POLYGONAL STACKING\n");
-    printf("where n >= 3 and any number <= %llu\n",  ULLONG_MAX);
+    printf("CANNONBALL NUMBERS\n");
+    printf("List all N-polygon pyramidal numbers which are N-polygonal\n");
+    printf("where N >= 3 and any number <= %llu\n",  ULLONG_MAX);
     printf("\n");
 
     while (polygon > prev) {
