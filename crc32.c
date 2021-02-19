@@ -6,28 +6,28 @@
 #include <inttypes.h>
 #include <stdbool.h>
 
-#define NBITS        8
-#define NVALUES      (1 << NBITS)
-#define MODINDEX     (NVALUES - 1)
-#define ONESCOMPL32  0xffffffffU
-#define CRC_INIT     (ONESCOMPL32)
-#define G_POLYNOMIAL 0xedb88320U
+#define CRC32_NBITS        (8)
+#define CRC32_NVALUES      (1 << CRC32_NBITS)
+#define CRC32_MODINDEX     (CRC32_NVALUES - 1)
+#define CRC32_ONESCOMPL32  (0xffffffffU)
+#define CRC32_INITVAL      (CRC32_ONESCOMPL32)
+#define CRC32_G_POLYNOMIAL (0xedb88320U)
 
 // CRC-32 of byte data
 static uint32_t crc32(unsigned char *buf, int len)
 {
-    static uint32_t crc_table[NVALUES];  // table of CRCs of all n-bit messages
+    static uint32_t crc_table[CRC32_NVALUES];  // table of CRCs of all n-bit messages
     static bool crc_table_todo = true;
     uint32_t c;
     int n, k;
 
     if (crc_table_todo) {
         // Pre-compute first 256 CRC values
-        for (n = 0; n < NVALUES; ++n) {
+        for (n = 0; n < CRC32_NVALUES; ++n) {
             c = (uint32_t) n;
-            for (k = 0; k < NBITS; k++) {
+            for (k = 0; k < CRC32_NBITS; k++) {
                 if (c & 1) {
-                    c = G_POLYNOMIAL ^ (c >> 1);
+                    c = CRC32_G_POLYNOMIAL ^ (c >> 1);
                 } else {
                     c >>= 1;
                 }
@@ -37,12 +37,12 @@ static uint32_t crc32(unsigned char *buf, int len)
         crc_table_todo = false;
     }
 
-    c = CRC_INIT;
+    c = CRC32_INITVAL;
     for (n = 0; n < len; ++n) {
-        c = crc_table[(c ^ buf[n]) & MODINDEX] ^ (c >> NBITS);
+        c = crc_table[(c ^ buf[n]) & CRC32_MODINDEX] ^ (c >> CRC32_NBITS);
     }
 
-    return c ^ ONESCOMPL32;
+    return c ^ CRC32_ONESCOMPL32;
 }
 
 int main(void)
