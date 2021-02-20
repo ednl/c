@@ -12,13 +12,11 @@
 #define CRC64_COMPLEMENT (UINT64_C(-1))
 #define CRC64_GPOLYNOM   (UINT64_C(0x42F0E1EBA9EA3693))
 
-typedef uint64_t hash_t;
-
-static hash_t crc64(unsigned char *data, unsigned int len)
+static uint64_t crc64(unsigned char *data, unsigned int len)
 {
-    static hash_t crc64_table[CRC64_TABLESIZE];
+    static uint64_t crc64_table[CRC64_TABLESIZE];
     static bool firstrun = true;
-    hash_t crc;
+    uint64_t crc;
     unsigned int i, j;
 
     if (firstrun) {
