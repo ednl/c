@@ -1,21 +1,19 @@
-#include <stdio.h>     // printf, fopen, getline
-#include <stdlib.h>    // atoll
-#include <string.h>    // strlen_s
-#include <stdint.h>    // uint64_t, uint_fast32_t, UINT32_C
-#include <inttypes.h>  // PRIuFAST32
-#include <math.h>      // sqrt
+#include <stdio.h>     // printf, fopen, fgets, rewind
+#include <string.h>    // strnlen
+#include <stdint.h>    // uint64_t
+#include <inttypes.h>  // strtoumax
+#include <math.h>      // sqrtl
 #include <stdbool.h>   // bool, true, false
-#include <errno.h>     // errno after strtoull
+#include <errno.h>     // errno after strtoumax
 
 #define NO_ERROR (0)
 #define MAXLEN (19)  // floor(log10(2^64 - 1)) = max digits base 10 fully representable in 64-bit unsigned
-#define BUFLEN (MAXLEN + 1)  // room for closing '\0'
+#define BUFLEN (MAXLEN + 1)  // make room for closing '\0'
 
 static const char *digitfile = "pi-10million.txt";
-typedef unsigned long long u64;
 
 // Get len-digit number in base 10 from file f, return true on success
-static bool readnum(FILE *f, u64 *num, unsigned char digits)
+static bool readnum(FILE *f, uint64_t *num, unsigned char digits)
 {
     static char buf[BUFLEN];
     int len = (int)digits + 1;
@@ -25,7 +23,7 @@ static bool readnum(FILE *f, u64 *num, unsigned char digits)
     }
     if (fgets(buf, len, f) != NULL) {
         if (strnlen(buf, (size_t)digits) == (size_t)digits) {
-            *num = strtoull(buf, NULL, 10);
+            *num = strtoumax(buf, NULL, 10);
             return errno == NO_ERROR;
         }
     }
@@ -33,9 +31,9 @@ static bool readnum(FILE *f, u64 *num, unsigned char digits)
 }
 
 // Greatest common divisor
-static u64 gcd(u64 a, u64 b)
+static uint64_t gcd(uint64_t a, uint64_t b)
 {
-    u64 r;
+    uint64_t r;
     if (b > a) {
         r = a;
         a = b;
@@ -50,7 +48,7 @@ static u64 gcd(u64 a, u64 b)
 }
 
 // Least common multiple
-// static u64 lcm(u64 a, u64 b)
+// static uint64_t lcm(uint64_t a, uint64_t b)
 // {
 //     if (a == 0 || b == 0) {
 //         return 0;
@@ -64,9 +62,9 @@ static u64 gcd(u64 a, u64 b)
 int main(void)
 {
     FILE *fp = NULL;
-    u64 a, b, total, coprime;
+    uint64_t a, b, pairs, coprime;
     unsigned char digits;
-    long double pi, err;
+    long double perc, pi, err;
     int retval = NO_ERROR;
 
     if ((fp = fopen(digitfile, "r")) == NULL) {
@@ -74,19 +72,24 @@ int main(void)
         return 1;
     }
 
+    printf("\ndig   pairs coprime percent   pi     error\n");
+    printf("---+-------+-------+-------+-------+--------\n");
+
     for (digits = 1; digits <= MAXLEN; ++digits) {
 
-        coprime = total = 0;
+        rewind(fp);
+        coprime = pairs = 0;
+
         while (readnum(fp, &a, digits)) {
             if (readnum(fp, &b, digits)) {
                 if (gcd(a, b) == 1) {
                     ++coprime;
                 }
-                ++total;
+                ++pairs;
             }
         }
 
-        if (total == 0) {
+        if (pairs == 0) {
             fprintf(stderr, "\nNo numbers found; estimation of pi not possible.\n\n");
             retval = 2;
             break;
@@ -98,12 +101,13 @@ int main(void)
             break;
         }
 
-        pi = sqrtl((long double)total / coprime * 6);
+        perc = (long double)coprime / pairs;
+        pi = sqrtl((long double)6 / perc);
         err = pi - (long double)M_PI;
-        printf("%2u %.5Lf %+.5Lf %7llu\n", digits, pi, err, total);
-        rewind(fp);
+        printf("%3u %7"PRIu64" %7"PRIu64" %.3Lf%% %.5Lf %+.5Lf\n", digits, pairs, coprime, perc * 100, pi, err);
 
     }
     fclose(fp);
+    printf("\n");
     return retval;
 }
