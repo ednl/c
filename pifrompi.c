@@ -10,6 +10,7 @@
 #define MAXLEN (19)  // floor(log10(2^64 - 1)) = max digits base 10 fully representable in 64-bit unsigned
 #define BUFLEN (MAXLEN + 1)  // make room for closing '\0'
 
+// Downloaded from http://introcs.cs.princeton.edu/data/pi-10million.txt
 static const char *digitfile = "pi-10million.txt";
 
 // Get len-digit number in base 10 from file f, return true on success
