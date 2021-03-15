@@ -73,7 +73,8 @@ int main(void)
         return 1;
     }
 
-    printf("\ndig   pairs coprime percent   pi     error\n");
+    printf("\n");
+    printf("dig   pairs coprime percent   pi     error\n");
     printf("---+-------+-------+-------+-------+--------\n");
 
     for (digits = 1; digits <= MAXLEN; ++digits) {
