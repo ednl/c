@@ -8,34 +8,39 @@
 ///////////////////////////////////////////////////////////////////////////////
 
 #include <stdio.h>   // printf
-#include <stdlib.h>  // srand, rand, RAND_MAX, NULL
-#include <time.h>    // to seed random number generator
-#include <math.h>    // hypot
+#include <stdlib.h>  // arc4random, NULL
+#include <stdint.h>  // uint64_t, UINT64_MAX
+#include <math.h>    // M_PI
 
 ///////////////////////////////////////////////////////////////////////////////
 
-double dr(void)
+// Best random value 0 <= r <= 1
+static long double rnd(void)
 {
-	return rand() / (RAND_MAX + 1.);
+	uint64_t r;
+	arc4random_buf(&r, sizeof(uint64_t));
+	return (long double)r / UINT64_MAX;
 }
 
 int main(void)
 {
-	unsigned long i, j, hit = 0, tot = 0;
+	int i, j;
+	uint64_t hit = 0, tot = 0;
+	long double a, b, pi, err;
 
-	// Seed random number generator.
-	srand(time(NULL));
-
-	for (i = 0; i < 100; ++i) {
+	for (i = 1; i <= 100; ++i) {
 		for (j = 0; j < 1000000; ++j) {
 
 			++tot;
-			if (hypot(dr(), dr()) < 1.0)
+			a = rnd();
+			b = rnd();
+			if (a*a + b*b <= 1)
 				++hit;
 
 		}
-		printf("%.12f\n", (double)hit / tot * 4);
+		pi = (long double)hit / tot * 4;
+		err = pi - M_PI;
+		printf("%3d %.10Lf %+.10Lf\n", i, pi, err);
 	}
-
 	return 0;
 }
