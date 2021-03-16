@@ -1,17 +1,13 @@
 #include <stdio.h>
-#include <stdlib.h>
+#include <stdint.h>    // uint64_t
 #include <math.h>
 
-#define DIGITS (1000000)
-#define NUMLEN (5)
-#define N      (DIGITS / NUMLEN)
+static const char *digitfile = "digits.txt";
 
-static const char *digits = "digits.txt";
-static int num[N] = {0};
-
-static int gcd(int a, int b)
+// Greatest common divisor
+static uint64_t gcd(uint64_t a, uint64_t b)
 {
-    int r;
+    uint64_t r;
     if (b > a) {
         r = a;
         a = b;
@@ -25,6 +21,18 @@ static int gcd(int a, int b)
     return a;
 }
 
+// Least common multiple
+static uint64_t lcm(uint64_t a, uint64_t b)
+{
+    if (a == 0 || b == 0) {
+        return 0;
+    }
+    if (a > b) {
+        return (a / gcd(a, b)) * b;  // try & prevent overflow
+    }
+    return (b / gcd(b, a)) * a;
+}
+
 int main(void)
 {
     FILE *fp;
@@ -33,7 +41,7 @@ int main(void)
     int i = 0, n = 0, coprime = 0;
     double pi;
 
-    if ((fp = fopen(digits, "r")) == NULL) {
+    if ((fp = fopen(digitfile, "r")) == NULL) {
         fprintf(stderr, "Text file with random digits not found.\n");
         return 1;
     }
