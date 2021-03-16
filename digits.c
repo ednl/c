@@ -19,6 +19,7 @@ static FILE *fp = NULL;
 static char buf[BUFSIZE] = {0};
 static size_t bufindex = 0, buflen = 0;
 
+// Read chunks from file into buffer
 static size_t fillbuf(void)
 {
     char *s = NULL, *c;
@@ -89,18 +90,6 @@ static uint64_t gcd(uint64_t a, uint64_t b)
     return a;
 }
 
-// Least common multiple
-// static uint64_t lcm(uint64_t a, uint64_t b)
-// {
-//     if (a == 0 || b == 0) {
-//         return 0;
-//     }
-//     if (a > b) {
-//         return (a / gcd(a, b)) * b;  // try & prevent overflow
-//     }
-//     return (b / gcd(b, a)) * a;
-// }
-
 int main(void)
 {
     uint64_t a, b, pairs, coprime;
@@ -116,11 +105,6 @@ int main(void)
     printf("\n");
     printf("dig  pairs  coprime percent   pi     error\n");
     printf("---+-------+-------+-------+-------+--------\n");
-
-    // if (getnum(&a, 10)) {
-    //     printf("a = %"PRIu64"\n", a);
-    // }
-    // return 0;
 
     for (digits = 1; digits <= MAXDIGITS; ++digits) {
 

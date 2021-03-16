@@ -13,7 +13,7 @@
 // Downloaded from http://introcs.cs.princeton.edu/data/pi-10million.txt
 static const char *digitfile = "pi-10million.txt";
 
-// Get len-digit number in base 10 from file f, return true on success
+// Get number from file, return true on success
 static bool readnum(FILE *f, uint64_t *num, unsigned char digits)
 {
     static char buf[BUFLEN];
@@ -57,7 +57,7 @@ int main(void)
     int retval = NO_ERROR;
 
     if ((fp = fopen(digitfile, "r")) == NULL) {
-        fprintf(stderr, "Text file with random digits not found.\n");
+        fprintf(stderr, "Text file with random digits not found: %s\n", digitfile);
         return 1;
     }
 
@@ -80,7 +80,7 @@ int main(void)
         }
 
         if (pairs == 0) {
-            fprintf(stderr, "\nNo numbers found; estimation of pi not possible.\n\n");
+            fprintf(stderr, "\nNo numbers found in file: %s\n\n", digitfile);
             retval = 2;
             break;
         }
