@@ -1,8 +1,76 @@
 #include <stdio.h>
+#include <stdlib.h>    // free
+#include <string.h>    // memcpy
 #include <stdint.h>    // uint64_t
-#include <math.h>
+#include <inttypes.h>  // PRIu64
+#include <math.h>      // sqrtl, M_PI
+#include <stdbool.h>   // bool, true, false
+#include <errno.h>     // errno after strtoumax
 
+#define NO_ERROR      (0)
+#define DIGITSPERLINE (50)  // there are 10 groups of 5 digits on every line
+#define MAXDIGITS     (19)  // floor(log10(2^64 - 1)) = max digits in base 10 fully representable in 64-bit unsigned
+#define BUFSIZE       (DIGITSPERLINE * 12)  // one buffer contains 12 lines of digits (very divisible)
+
+// Downloaded from https://www.rand.org/content/dam/rand/pubs/monograph_reports/MR1418/MR1418.digits.txt.zip
 static const char *digitfile = "digits.txt";
+
+static FILE *fp = NULL;
+static char buf[BUFSIZE] = {0};
+static size_t bufindex = 0, buflen = 0;
+
+static size_t fillbuf(void)
+{
+    char *s = NULL, *c;
+    size_t t;
+
+    // Clean up buffer
+    if (bufindex > 0) {
+        if (bufindex < buflen) {
+            // Save remaining content
+            t = buflen - bufindex;
+            memmove(buf, &buf[bufindex], t);
+            bufindex = 0;
+            buflen = t;
+        } else {
+            // All processed, discard
+            bufindex = buflen = 0;
+        }
+    }
+    // Add to buffer
+    t = 0;
+    while (buflen <= BUFSIZE - DIGITSPERLINE && getline(&s, &t, fp) > 0) {
+        c = s;
+        while (*c >= '0' && *c <= '9') {
+            ++c;  // skip line number
+        }
+        while (*c != '\n' && *c != '\0') {
+            while (*c == ' ') {
+                ++c;  // skip spaces
+            }
+            while (*c >= '0' && *c <= '9' && buflen < BUFSIZE) {
+                buf[buflen++] = *c++;
+            }
+        }
+    }
+    free(s);
+    return buflen - bufindex;
+}
+
+// Get number from buffer, return true on success
+static bool getnum(uint64_t *num, unsigned char digits)
+{
+    if (buflen - bufindex < digits) {
+        if (fillbuf() < digits) {
+            return false;
+        }
+    }
+    *num = 0;
+    while (digits--) {
+        *num = *num * 10 + (uint64_t)(buf[bufindex++] - '0');
+    }
+    return true;
+}
 
 // Greatest common divisor
 static uint64_t gcd(uint64_t a, uint64_t b)
@@ -22,64 +90,72 @@ static uint64_t gcd(uint64_t a, uint64_t b)
 }
 
 // Least common multiple
-static uint64_t lcm(uint64_t a, uint64_t b)
-{
-    if (a == 0 || b == 0) {
-        return 0;
-    }
-    if (a > b) {
-        return (a / gcd(a, b)) * b;  // try & prevent overflow
-    }
-    return (b / gcd(b, a)) * a;
-}
+// static uint64_t lcm(uint64_t a, uint64_t b)
+// {
+//     if (a == 0 || b == 0) {
+//         return 0;
+//     }
+//     if (a > b) {
+//         return (a / gcd(a, b)) * b;  // try & prevent overflow
+//     }
+//     return (b / gcd(b, a)) * a;
+// }
 
 int main(void)
 {
-    FILE *fp;
-    char *s = NULL, *c;
-    size_t t = 0;
-    int i = 0, n = 0, coprime = 0;
-    double pi;
+    uint64_t a, b, pairs, coprime;
+    unsigned char digits;
+    long double perc, pi, err;
+    int retval = NO_ERROR;
 
     if ((fp = fopen(digitfile, "r")) == NULL) {
-        fprintf(stderr, "Text file with random digits not found.\n");
+        fprintf(stderr, "Text file with random digits not found: %s\n", digitfile);
         return 1;
     }
 
-    // Format of every line: "00000   10097 32533  76520 13586  34673 54876  80959 09117  39292 74945"
-    while (getline(&s, &t, fp) > 0) {
-        c = s;
-        while (*c != '\n' && *c != '\r' && *c != '\0' && i < N) {
-            while (*c >= '0' && *c <= '9') {
-                ++c;  // skip line number and previously processed numbers
-            }
-            while (*c == ' ') {
-                ++c;  // skip spaces
-            }
-            if (*c >= '0' && *c <= '9') {
-                num[n++] = atoi(c);  // interpret number from c onwards
+    printf("\n");
+    printf("dig  pairs  coprime percent   pi     error\n");
+    printf("---+-------+-------+-------+-------+--------\n");
+
+    // if (getnum(&a, 10)) {
+    //     printf("a = %"PRIu64"\n", a);
+    // }
+    // return 0;
+
+    for (digits = 1; digits <= MAXDIGITS; ++digits) {
+
+        rewind(fp);
+        coprime = pairs = 0;
+        bufindex = buflen = 0;
+
+        while (getnum(&a, digits)) {
+            if (getnum(&b, digits)) {
+                if (gcd(a, b) == 1) {
+                    ++coprime;
+                }
+                ++pairs;
             }
         }
+
+        if (pairs == 0) {
+            fprintf(stderr, "\nNo numbers found in file: %s\n\n", digitfile);
+            retval = 2;
+            break;
+        }
+
+        if (coprime == 0) {
+            fprintf(stderr, "\nNo coprimes found; estimation of pi not possible.\n\n");
+            retval = 3;
+            break;
+        }
+
+        perc = (long double)coprime / pairs;
+        pi = sqrtl((long double)6 / perc);
+        err = pi - (long double)M_PI;
+        printf("%3u %7"PRIu64" %7"PRIu64" %.3Lf%% %.5Lf %+.5Lf\n", digits, pairs, coprime, perc * 100, pi, err);
+
     }
-    free(s);
     fclose(fp);
-
-    if (n & 1) {
-        --n;  // make n even
-    }
-    while (i < n) {
-        if (gcd(num[i], num[i + 1]) == 1) {
-            ++coprime;
-        }
-        i += 2;
-    }
-
-    if (coprime == 0) {
-        fprintf(stderr, "No coprimes found; estimation of pi not possible.\n");
-        return 2;
-    }
-
-    pi = sqrt((double)n / coprime * 3);
-    printf("\npi ~= %.6f\n\n", pi);
-    return 0;
+    printf("\n");
+    return retval;
 }
