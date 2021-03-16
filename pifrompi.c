@@ -74,7 +74,7 @@ int main(void)
     }
 
     printf("\n");
-    printf("dig   pairs coprime percent   pi     error\n");
+    printf("dig  pairs  coprime percent   pi     error\n");
     printf("---+-------+-------+-------+-------+--------\n");
 
     for (digits = 1; digits <= MAXLEN; ++digits) {
