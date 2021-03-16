@@ -48,18 +48,6 @@ static uint64_t gcd(uint64_t a, uint64_t b)
     return a;
 }
 
-// Least common multiple
-// static uint64_t lcm(uint64_t a, uint64_t b)
-// {
-//     if (a == 0 || b == 0) {
-//         return 0;
-//     }
-//     if (a > b) {
-//         return (a / gcd(a, b)) * b;  // try & prevent overflow
-//     }
-//     return (b / gcd(b, a)) * a;
-// }
-
 int main(void)
 {
     FILE *fp = NULL;
