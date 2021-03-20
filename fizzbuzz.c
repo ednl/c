@@ -34,20 +34,22 @@ int main(int argc, char *argv[])
         return 1;
     } else if (argc == 2) {
         // One argument = count
-        count = abs(atoi(argv[1]));
+        count = atoi(argv[1]);
     } else if (argc == 3) {
         // Two arguments = fizz, buzz
-        fizz  = abs(atoi(argv[1]));
-        buzz  = abs(atoi(argv[2]));
-        count = lcm(fizz, buzz);
-        if (count > MAXCOUNT) {
+        fizz  = atoi(argv[1]);
+        buzz  = atoi(argv[2]);
+        count = lcm(fizz, buzz);  // stop at the first FizzBuzz
+        if (count < MINFIZZ) {
+            count = MINFIZZ;
+        } else if (count > MAXCOUNT) {
             count = MAXCOUNT;
         }
     } else if (argc == 4) {
         // Three arguments
-        fizz  = abs(atoi(argv[1]));
-        buzz  = abs(atoi(argv[2]));
-        count = abs(atoi(argv[3]));
+        fizz  = atoi(argv[1]);
+        buzz  = atoi(argv[2]);
+        count = atoi(argv[3]);
     }
     // Sanity check
     if (fizz  < MINFIZZ || fizz  > MAXFIZZ ||
