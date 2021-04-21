@@ -14,9 +14,10 @@ static const char *cmddict[] = {
 
 static const char *input[] = {
     "cirkel 100 100 50 128",
-    " lijn -1",
+    " lijn 0",
     "bla 1234 34 3456",
     "punt -1000 12342345567",
+    "cirkel100x200_50+10 ",
 };
 
 static int parse(const char *line)
@@ -84,7 +85,7 @@ static int parse(const char *line)
         ++paramcount;
         int n = atoi(start);
         // TODO: test range
-        printf("Param %i: %i\n", paramcount, n);
+        printf("Argument %i: %i\n", paramcount, n);
     }
     // TODO: test paramcount against required number of params for this cmd
     return 0;
@@ -93,6 +94,6 @@ static int parse(const char *line)
 int main(void)
 {
     for (size_t i = 0; i < sizeof input / sizeof *input; ++i)
-        printf("Result: %i\n\n", parse(input[i]));
+        printf("Foutcode: %i\n\n", parse(input[i]));
     return 0;
 }
