@@ -1,18 +1,121 @@
 #include <stdio.h>   // printf
 #include <stdlib.h>  // atoi
-#include <string.h>  // strncmp
-#include <ctype.h>   // isalpha, isdigit
-#include <stddef.h>  // ptrdiff_t
+#include <string.h>  // strcmp, strncmp
+#include <stdint.h>  // int32_t, uint32_t
+#include <stdbool.h> // bool, true, false
+#include <ctype.h>   // isspace
 
-static const char *cmddict[] = {
-    "punt",
-    "lijn",
-    "rechthoek",
-    "cirkel",
-    "ellips",
+#define API_SCREEN_W (320U)
+#define API_SCREEN_H (240U)
+
+#define MAX_DIGITS (9U)
+
+typedef enum {
+    ERR_OK = 0,
+    ERR_UNKNOWN_CMD,
+    ERR_TOO_FEW_ARG,
+    ERR_TOO_MANY_ARG,
+    ERR_NUM_TOO_LARGE,
+    ERR_INVALID_NUM,
+    ERR_OFF_SCREEN_X,
+    ERR_OFF_SCREEN_Y,
+    ERR_INVALID_COL,
+    ERR_SYNTAX_ERROR,
+    ERR_UNKNOWN_ERROR
+} ERR_T;
+
+typedef enum {
+    ARG_POSX,ARG_POSY,ARG_DIMX,ARG_DIMY,
+    ARG_COLOR,ARG_WEIGHT,ARG_FILL,ARG_RADIUS,
+    ARG_TEXT,ARG_FONTNAME,ARG_FONTSIZE,ARG_FONTSTYLE,
+    ARG_BMPID,ARG_MSEC,ARG_REPNUM,ARG_REPCOUNT
+} ARG_T;
+
+typedef struct {
+    char *command;
+    int argcount;
+    ARG_T argtype[12];
+    bool isint[12];
+} SYNTAX;
+
+static const SYNTAX syntax[] = {
+    {
+        .command  = "clearscherm",
+        .argcount = 1,
+        .argtype  = {ARG_COLOR},
+        .isint    = {1}
+    },
+    {
+        .command  = "punt",
+        .argcount = 3,
+        .argtype  = {ARG_POSX,ARG_POSY,ARG_COLOR},
+        .isint    = {1,1,1}
+    },
+    {
+        .command  = "lijn",
+        .argcount = 6,
+        .argtype  = {ARG_POSX,ARG_POSY,ARG_POSX,ARG_POSY,ARG_COLOR,ARG_WEIGHT},
+        .isint    = {1,1,1,1,1,1}
+    },
+    {
+        .command  = "rechthoek",
+        .argcount = 6,
+        .argtype  = {ARG_POSX,ARG_POSY,ARG_DIMX,ARG_DIMY,ARG_COLOR,ARG_FILL},
+        .isint    = {1,1,1,1,1,1}
+    },
+    {
+        .command  = "figuur",
+        .argcount = 11,
+        .argtype  = {ARG_POSX,ARG_POSY,ARG_POSX,ARG_POSY,ARG_POSX,ARG_POSY,
+                     ARG_POSX,ARG_POSY,ARG_POSX,ARG_POSY,ARG_COLOR},
+        .isint    = {1,1,1,1,1,1,1,1,1,1,1}
+    },
+    {
+        .command  = "cirkel",
+        .argcount = 4,
+        .argtype  = {ARG_POSX,ARG_POSY,ARG_RADIUS,ARG_COLOR},
+        .isint    = {1,1,1,1}
+    },
+    {
+        .command  = "ellips",
+        .argcount = 5,
+        .argtype  = {ARG_POSX,ARG_POSY,ARG_RADIUS,ARG_RADIUS,ARG_COLOR},
+        .isint    = {1,1,1,1,1}
+    },
+    {
+        .command  = "tekst",
+        .argcount = 7,
+        .argtype  = {ARG_POSX,ARG_POSY,ARG_COLOR,ARG_TEXT,
+                     ARG_FONTNAME,ARG_FONTSIZE,ARG_FONTSTYLE},
+        .isint    = {1,1,1,0,0,1,0}
+    },
+    {
+        .command  = "bitmap",
+        .argcount = 3,
+        .argtype  = {ARG_BMPID,ARG_POSX,ARG_POSY},
+        .isint    = {1,1,1}
+    },
+    {
+        .command  = "wacht",
+        .argcount = 1,
+        .argtype  = {ARG_MSEC},
+        .isint    = {1}
+    },
+    {
+        .command  = "herhaal",
+        .argcount = 2,
+        .argtype  = {ARG_REPNUM,ARG_REPCOUNT},
+        .isint    = {1,1}
+    },
 };
 
-static const char *input[] = {
+typedef struct {
+    CMD_T cmdid;
+    int argint[12];
+
+} COMMAND;
+
+static char *input[] = {
     "cirkel 100 100 50 128",
     " lijn 0",
     "bla 1234 34 3456",
@@ -20,80 +123,76 @@ static const char *input[] = {
     "cirkel100x200_50+10 ",
 };
 
-static int parse(const char *line)
+static int parse(char *line)
 {
-    const char *start = line, *stop;
-
-    // Find first letter
-    while (*start != '\0' && !isalpha(*start))
-        ++start;
-    if (!isalpha(*start))
-        return 1;   // no command found
-
-    // Find end of command
-    stop = start;
-    while (isalpha(*stop))
-        ++stop;
-    ptrdiff_t diff = stop - start;
-    if (diff <= 0)
-        return 2;  // empty command
-    size_t len = (size_t)diff;
-
-    // Detect command
-    int cmdindex = -1;
-    for (size_t i = 0; i < sizeof cmddict / sizeof *cmddict; ++i)
-        if (!strncmp(start, cmddict[i], len))
-        {
-            cmdindex = (int)i;
-            break;
-        }
-    if (cmdindex == -1)
-        return 3;  // unknown command
-
-    printf("Commando: %s\n", cmddict[cmdindex]);
-
-    int paramcount = 0;
-    while (*stop != '\r' && *stop != '\n' && *stop != '\0')
+    int cmdid = -1;
+    int argcount = -1;
+    int intcount = 0;
+    char *token = strtok(line, ",");
+    while (token)
     {
-        // Find first digit
-        start = stop;
-        while (*start != '\0' && *start != '+' && *start != '-' && !isdigit(*start))
-            ++start;
-        if (*start != '+' && *start != '-' && !isdigit(*start))
-            break;   // no more params
-
-        // Find last digit
-        stop = start;
-        if (*stop == '+' || *stop == '-')
+        argcount++;
+        if (argcount == 0)
         {
-            ++stop;
-            if (!isdigit(*stop))
-                return 4;  // invalid param
+            for (size_t i = 0; i < sizeof syntax / sizeof *syntax; ++i)
+            {
+                if (strcmp(token, syntax[i].command) == 0)
+                {
+                    cmdid = (int)i;
+                    break;
+                }
+            }
+            if (cmdid == -1)
+                return ERR_UNKNOWN_CMD;
         }
-        while (isdigit(*stop))
-            ++stop;
-        diff = stop - start;
-        if (diff <= 0)
-            return 5;  // empty param
-        len = (size_t)diff;
+        else if (argcount > syntax[cmdid].argcount)
 
-        // Test length
-        if (len > 5)
-            return 6;  // param overflow
+            return ERR_TOO_MANY_ARG;
 
-        // Convert to int
-        ++paramcount;
-        int n = atoi(start);
-        // TODO: test range
-        printf("Argument %i: %i\n", paramcount, n);
+        else
+        {
+            int val;
+            if (syntax[cmdid].isint[argcount])
+            {
+                while (isspace(*token))
+                    ++token;
+                if (strlen(token) > MAX_DIGITS)
+                    return ERR_NUM_TOO_LARGE;
+                val = atoi(token);
+                if (val == 0 && strcmp(token, "0"))
+                    return ERR_INVALID_NUM;
+                switch (syntax[cmdid].argtype[argcount])
+                {
+                case ARG_POSX:
+                    if (val < 0 || val >= (int)API_SCREEN_W)
+                        return ERR_OFF_SCREEN_X;
+                    break;
+                case ARG_POSY:
+                    if (val < 0 || val >= (int)API_SCREEN_H)
+                        return ERR_OFF_SCREEN_Y;
+                    break;
+                case ARG_COLOR:
+                    if (val < 0 || val > UINT8_MAX)
+                        return ERR_INVALID_COL;
+                    break;
+
+                default:
+                    return ERR_SYNTAX_ERROR;
+                }
+            }
+        }
+        token = strtok(NULL, ",");
     }
-    // TODO: test paramcount against required number of params for this cmd
+    if (argcount < syntax[cmdid].argcount)
+        return ERR_TOO_FEW_ARG;
     return 0;
 }
 
 int main(void)
 {
     for (size_t i = 0; i < sizeof input / sizeof *input; ++i)
-        printf("Foutcode: %i\n\n", parse(input[i]));
+    {
+        printf("Foutcode: %i\n\n", parse((char*)input[i]));
+    }
     return 0;
 }
