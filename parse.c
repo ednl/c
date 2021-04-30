@@ -48,7 +48,7 @@ static const char *script[] = {
     "tekst,10,60,grijs,nu alleen nog de herhaalfunctie, arial, 1, cursief",
     "wacht,2000",
     "herhaal,9,4",
-    "figuur,1,2,3,4,5,6,7,8,9,10,lichtblauw,3",
+    "figuur,1,2,3,4,5,6,7,8,9,10,lichtblauw  ,3",
     "ellips,160,120,150,110,rood"
 };
 
@@ -406,9 +406,18 @@ static ERR_T parse(const char *line, PINSTR pinstr)
             }
             else
             {
-                // Skip leading spaces for text data
+                // Skip leading spaces for any text data
                 while (isspace(*token))
                     ++token;
+
+                // Skip trailing spaces for any text data
+                // (token length will be restored at the end of this else clause)
+                char *end = token + strlen(token);
+                char *last = end - 1;
+                while (last >= token && isspace(*last))
+                    last--;
+                if (++last != end)
+                    *last = '\0';
 
                 bool found = false;
                 switch (this->argtype[argindex])
@@ -420,7 +429,7 @@ static ERR_T parse(const char *line, PINSTR pinstr)
                         pinstr->err = ERR_TOO_MANY_ARG;
                         return ERR_TOO_MANY_ARG;
                     }
-                    // Find it
+                    // Look in colour names dictionary
                     for (size_t i = 0; i < sizeof colornames / sizeof *colornames; ++i)
                     {
                         if (strcmp(token, colornames[i].name) == 0)
@@ -437,6 +446,7 @@ static ERR_T parse(const char *line, PINSTR pinstr)
                     }
                     break;
                 case ARG_FONTNAME:
+                    // Look in font names dictionary
                     for (size_t i = 0; i < sizeof fontnames / sizeof *fontnames; ++i)
                     {
                         if (strcmp(token, fontnames[i].name) == 0)
@@ -453,6 +463,7 @@ static ERR_T parse(const char *line, PINSTR pinstr)
                     }
                     break;
                 case ARG_FONTSTYLE:
+                    // Look in font styles dictionary
                     for (size_t i = 0; i < sizeof fontstyles / sizeof *fontstyles; ++i)
                     {
                         if (strcmp(token, fontstyles[i].name) == 0)
@@ -491,6 +502,9 @@ static ERR_T parse(const char *line, PINSTR pinstr)
                     break;
                 }
 
+                // Restore token length if it had trailing spaces
+                if (last != end)
+                    *last = ' ';
             }
         }
         else
