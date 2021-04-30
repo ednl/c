@@ -49,6 +49,7 @@ static const char *script[] = {
     "wacht,2000",
     "herhaal,9,4",
     "figuur,1,2,3,4,5,6,7,8,9,10,lichtblauw,3",
+    "ellips,160,120,150,110,rood"
 };
 
 ////////// Errors /////////////////////////////////////////////////////////////
@@ -75,6 +76,7 @@ typedef enum {
 
 ////////// Arguments //////////////////////////////////////////////////////////
 
+// TODO: add optional arguments
 typedef enum {
     ARG_SIGNED = -1,
     ARG_CMD = 0, // a command is one type of argument (the first one on every line)
