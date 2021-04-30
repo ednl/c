@@ -1,7 +1,7 @@
 #include <stdio.h>   // printf
 #include <stdlib.h>  // atoi
 #include <string.h>  // strcmp, strncmp
-#include <stdint.h>  // int32_t, uint32_t
+#include <stdint.h>  // uint8_t, int32_t, uint32_t
 #include <stdbool.h> // bool, true, false
 #include <ctype.h>   // isspace
 
@@ -41,36 +41,6 @@ typedef enum {
 // Which arguments are of type int and which are not?
 static const bool arg_is_int[ARG_LAST] = {0,1,1,1,1,1,1,1,1,0,0,1,0,1,1,1,1};
 
-////////// Commands ///////////////////////////////////////////////////////////
-
-typedef enum {
-    CMD_CLS,
-    CMD_PIXEL, CMD_LINE,
-    CMD_RECT, CMD_FIGURE,
-    CMD_CIRCLE, CMD_ELLIPSE,
-    CMD_TEXT, CMD_BITMAP,
-    CMD_WAIT, CMD_REPEAT
-} CMD_T;
-
-typedef struct {
-    const CMD_T id;
-    const char *name;
-} CMD, *PCMD;
-
-static const CMD commands[] = {
-    { .id = CMD_CLS,     .name = "clearscherm" },
-    { .id = CMD_PIXEL,   .name = "punt"        },
-    { .id = CMD_LINE,    .name = "lijn"        },
-    { .id = CMD_RECT,    .name = "rechthoek"   },
-    { .id = CMD_FIGURE,  .name = "figuur"      },
-    { .id = CMD_CIRCLE,  .name = "cirkel"      },
-    { .id = CMD_ELLIPSE, .name = "ellips"      },
-    { .id = CMD_TEXT,    .name = "tekst"       },
-    { .id = CMD_BITMAP,  .name = "bitmap"      },
-    { .id = CMD_WAIT,    .name = "wacht"       },
-    { .id = CMD_REPEAT,  .name = "herhaal"     },
-};
-
 ////////// Font Names /////////////////////////////////////////////////////////
 
 typedef enum {
@@ -78,9 +48,9 @@ typedef enum {
 } FNM_T;
 
 typedef struct {
-    const FNM_T id;
-    const char *name;
-} FNM;
+    FNM_T id;
+    char *name;
+} FNM, *PFNM;
 
 static const FNM fontnames[] = {
     { .id = FNM_ARIAL,    .name = "arial"    },
@@ -94,9 +64,9 @@ typedef enum {
 } FST_T;
 
 typedef struct {
-    const FST_T id;
-    const char *name;
-} FST;
+    FST_T id;
+    char *name;
+} FST, *PFST;
 
 static const FST fontstyles[] = {
     { .id = FST_NORMAL, .name = "normaal" },
@@ -104,35 +74,43 @@ static const FST fontstyles[] = {
     { .id = FST_ITALIC, .name = "cursief" },
 };
 
-////////// Syntax /////////////////////////////////////////////////////////////
+////////// Command Syntax /////////////////////////////////////////////////////
+
+typedef enum {
+    CMD_CLS,
+    CMD_PIXEL, CMD_LINE, CMD_RECT, CMD_FIGURE, CMD_CIRCLE, CMD_ELLIPSE,
+    CMD_TEXT, CMD_BITMAP, CMD_WAIT, CMD_REPEAT
+} CMD_T;
 
 typedef struct {
-    const CMD_T cmdid;
-    const int   argcount;
-    const ARG_T argtype[MAX_ARGS];
+    CMD_T   id;
+    char   *name;
+    uint8_t argc;
+    ARG_T   type[MAX_ARGS];
 } SYNTAX, *PSYNTAX;
 
 static const SYNTAX syntax[] = {
-    { .cmdid = CMD_CLS,     .argcount =  2, .argtype = {ARG_CMD,ARG_COLOR} },
-    { .cmdid = CMD_PIXEL,   .argcount =  4, .argtype = {ARG_CMD,ARG_POSX,ARG_POSY,ARG_COLOR} },
-    { .cmdid = CMD_LINE,    .argcount =  7, .argtype = {ARG_CMD,ARG_POSX,ARG_POSY,ARG_POSX,ARG_POSY,ARG_COLOR,ARG_WEIGHT} },
-    { .cmdid = CMD_RECT,    .argcount =  7, .argtype = {ARG_CMD,ARG_POSX,ARG_POSY,ARG_DIMX,ARG_DIMY,ARG_COLOR,ARG_FILL} },
-    { .cmdid = CMD_FIGURE,  .argcount = 12, .argtype = {ARG_CMD,ARG_POSX,ARG_POSY,ARG_POSX,ARG_POSY,ARG_POSX,ARG_POSY,ARG_POSX,ARG_POSY,ARG_POSX,ARG_POSY,ARG_COLOR} },
-    { .cmdid = CMD_CIRCLE,  .argcount =  5, .argtype = {ARG_CMD,ARG_POSX,ARG_POSY,ARG_RADIUS,ARG_COLOR} },
-    { .cmdid = CMD_ELLIPSE, .argcount =  6, .argtype = {ARG_CMD,ARG_POSX,ARG_POSY,ARG_RADIUS,ARG_RADIUS,ARG_COLOR} },
-    { .cmdid = CMD_TEXT,    .argcount =  8, .argtype = {ARG_CMD,ARG_POSX,ARG_POSY,ARG_COLOR,ARG_TEXT,ARG_FONTNAME,ARG_FONTSIZE,ARG_FONTSTYLE} },
-    { .cmdid = CMD_BITMAP,  .argcount =  4, .argtype = {ARG_CMD,ARG_BMPID,ARG_POSX,ARG_POSY} },
-    { .cmdid = CMD_WAIT,    .argcount =  2, .argtype = {ARG_CMD,ARG_MSEC} },
-    { .cmdid = CMD_REPEAT,  .argcount =  3, .argtype = {ARG_CMD,ARG_REPNUM,ARG_REPCOUNT} },
+    { .id = CMD_CLS,     .name = "clearscherm", .argc =  2, .type = {ARG_CMD,ARG_COLOR} },
+    { .id = CMD_PIXEL,   .name = "punt"       , .argc =  4, .type = {ARG_CMD,ARG_POSX,ARG_POSY,ARG_COLOR} },
+    { .id = CMD_LINE,    .name = "lijn"       , .argc =  7, .type = {ARG_CMD,ARG_POSX,ARG_POSY,ARG_POSX,ARG_POSY,ARG_COLOR,ARG_WEIGHT} },
+    { .id = CMD_RECT,    .name = "rechthoek"  , .argc =  7, .type = {ARG_CMD,ARG_POSX,ARG_POSY,ARG_DIMX,ARG_DIMY,ARG_COLOR,ARG_FILL} },
+    { .id = CMD_FIGURE,  .name = "figuur"     , .argc = 12, .type = {ARG_CMD,ARG_POSX,ARG_POSY,ARG_POSX,ARG_POSY,ARG_POSX,ARG_POSY,ARG_POSX,ARG_POSY,ARG_POSX,ARG_POSY,ARG_COLOR} },
+    { .id = CMD_CIRCLE,  .name = "cirkel"     , .argc =  5, .type = {ARG_CMD,ARG_POSX,ARG_POSY,ARG_RADIUS,ARG_COLOR} },
+    { .id = CMD_ELLIPSE, .name = "ellips"     , .argc =  6, .type = {ARG_CMD,ARG_POSX,ARG_POSY,ARG_RADIUS,ARG_RADIUS,ARG_COLOR} },
+    { .id = CMD_TEXT,    .name = "tekst"      , .argc =  8, .type = {ARG_CMD,ARG_POSX,ARG_POSY,ARG_COLOR,ARG_TEXT,ARG_FONTNAME,ARG_FONTSIZE,ARG_FONTSTYLE} },
+    { .id = CMD_BITMAP,  .name = "bitmap"     , .argc =  4, .type = {ARG_CMD,ARG_BMPID,ARG_POSX,ARG_POSY} },
+    { .id = CMD_WAIT,    .name = "wacht"      , .argc =  2, .type = {ARG_CMD,ARG_MSEC} },
+    { .id = CMD_REPEAT,  .name = "herhaal"    , .argc =  3, .type = {ARG_CMD,ARG_REPNUM,ARG_REPCOUNT} },
 };
 
 typedef struct {
-    int   ord;
-    CMD_T id;
-    int   argval[MAX_ARGS];
-    // TODO: fontname/fontstyle args ook opslaan als int via hun enum type?
-    // TODO: text arg opslaan als string?
-} COMMAND, *PCOMMAND;
+    int ord;
+    PSYNTAX syn;
+    int val[MAX_ARGS];
+    PFNM fnm;
+    PFST fst;
+    char *text;
+} INSTR, *PINSTR;
 
 ////////// Test Input /////////////////////////////////////////////////////////
 
@@ -173,43 +151,39 @@ static char *script[] = {
 
 ////////// Functions //////////////////////////////////////////////////////////
 
-static ERR_T parse(char *line, PCOMMAND cmd)
+static ERR_T parse(char *line, PINSTR instr)
 {
     static int cmdcount = 0;
 
-    PSYNTAX psyn = NULL;
-    int argcount = -1;
+    PSYNTAX this = NULL;
+    int argcount = 0;
     int intcount = 0;
     char *token = strtok(line, ",");
 
     while (token)
     {
-        argcount++;
         if (argcount == 0)  // first token should be the command
         {
             // Which command is it?
             // (syntax is an array, so sizeof is the array length)
             for (size_t i = 0; i < sizeof syntax; ++i)
             {
-                if (strcmp(token, syntax[i].command) == 0)  // found it
+                if (strcmp(token, syntax[i].name) == 0)  // found it
                 {
-                    psyn = &syntax[i];
-                    cmd->id = psyn->id;
+                    this = &syntax[i];
+                    instr->syn = this;
                     break;  // end of the for loop
                 }
             }
-            if (psyn == NULL)
+            if (this == NULL)
                 return ERR_UNKNOWN_CMD;
+            instr->ord = cmdcount++;
         }
-        else if (argcount > psyn->argcount || argcount > MAX_ARGS)
-
-            return ERR_TOO_MANY_ARG;
-
-        else
+        else if (argcount <= this->argc)
         {
-            int val = -1;
-            if (arg_is_int[psyn->argtype[argcount]])
+            if (arg_is_int[thiscmd->type[argcount - 1]])
             {
+                int val = -1;
                 while (isspace(*token))
                     ++token;
                 if (strlen(token) > MAX_DIGITS)
@@ -236,14 +210,21 @@ static ERR_T parse(char *line, PCOMMAND cmd)
                     return ERR_SYNTAX_ERROR;
                 }
             }
+            else
+            {
+                //TODO: non-int argument
+            }
         }
+        else
+            return ERR_TOO_MANY_ARG;
+        argcount++;
         token = strtok(NULL, ",");
     }
 
     // What have we found?
-    if (psyn == NULL)
+    if (thiscmd == NULL)
         return ERR_CMD_NOTFOUND;
-    if (argcount < psyn->argcount)
+    if (argcount < thiscmd->argc)
         return ERR_MISSING_ARG;
 
     return ERR_OK;
@@ -254,11 +235,10 @@ static ERR_T parse(char *line, PCOMMAND cmd)
 int main(void)
 {
     ERR_T err = ERR_OK;
-    COMMAND cmd = {0};
 
     for (size_t i = 0; i < sizeof script / sizeof *script; ++i)
     {
-        err = parse(script[i], &cmd);
+        err = parse(script[i]);
     }
     return 0;
 }
