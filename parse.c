@@ -310,7 +310,6 @@ static ERR_T run(PINSTR pinstr)
 }
 
 // Parse a line of text into a complete instruction
-// Warning: text in line will be altered
 static ERR_T parse(const char *line, PINSTR pinstr)
 {
     // Global command counter
