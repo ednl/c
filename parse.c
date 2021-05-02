@@ -1,5 +1,6 @@
+#include <errno.h>   // errno (for strtol)
 #include <stdio.h>   // printf
-#include <stdlib.h>  // atoi
+#include <stdlib.h>  // strtol
 #include <string.h>  // strcmp, strncmp
 #include <stdint.h>  // uint8_t, int32_t, uint32_t
 #include <stdbool.h> // bool, true, false
@@ -49,11 +50,6 @@ static const char *script[] = {
 typedef enum {
     API_ERR_SIGNED =   -1,
     API_ERR_OK     =    0,
-    API_ERR_COLOR  = 0x80,
-    API_ERR_FONTNAME,
-    API_ERR_FONTSTYLE,
-    API_ERR_RANGE_X,
-    API_ERR_RANGE_Y,
 } API_Err;
 
 typedef enum {
@@ -240,15 +236,15 @@ static const Syntax syntax[] = {
     { .id = API_CMD_COLORS,   .argc =  0, .optc = 0 },
 };
 
-////////// My Parsed Command = Instruction ////////////////////////////////////
+////////// My Parsed Command (=Instruction) ///////////////////////////////////
 
 typedef struct {
     ErrType err;  // error code
-    int     ord;  // ordinal command counter
-    pDict   cmd;  // pointer to command dict
-    pDict   col;  // pointer to colour dict
-    pDict   fnm;  // pointer to font name dict
-    pDict   fst;  // pointer to font style dict
+    int     ord;  // increasing command counter
+    pDict   cmd;  // pointer to command dict entry
+    pDict   col;  // pointer to colour dict entry
+    pDict   fnm;  // pointer to font name dict entry
+    pDict   fst;  // pointer to font style dict entry
     int     val[MAX_ARGS];
     char   *txt;  // dynamically allocated when needed => free after use!
 } Instr, *pInstr;
@@ -453,20 +449,19 @@ static ErrType run_cmd(const pInstr instr)
 }
 
 // Convert to integer
-static ErrType str_to_int(const char *s, int *n)
+static ErrType str_to_int(const char *s, int32_t *n)
 {
     // Check strlen to avoid overflow = undefined result
     if (strlen(s) > MAX_DIGITS)
         return ERR_NUMBER;
 
-    int val = atoi(s);
-
-    // Check if zero was really zero, or if the conversion failed
-    // TODO: this will fail on potentially valid represenations such as "+0", "00"
-    if (val == 0 && strcmp(s, "0"))
+    char *end;
+    errno = 0;
+    long val = strtol(s, &end, 10);
+    if (s == end || errno == ERANGE || val < INT32_MIN || val > INT32_MAX)
         return ERR_NUMBER;
 
-    *n = val;
+    *n = (int32_t)val;
     return ERR_OK;
 }
 
@@ -504,7 +499,7 @@ static ErrType parse(const char *line, pInstr pinstr)
     pSyntax psyn = NULL;     // pointer to syntax info of current command
     int argindex = -1;       // current argument index (command doesn't count, so start at -1)
     int intindex = 0;        // current integer argument index
-    int val = 0;             // converted integer argument
+    int32_t val = 0;         // converted integer argument
     ErrType e = ERR_OK;      // error code
 
     if (strlen(line) >= BUFLEN)  // also check equal to leave space for null-terminator
@@ -627,7 +622,7 @@ static ErrType parse(const char *line, pInstr pinstr)
                 }
 
                 // All OK, store it
-                pinstr->val[intindex++] = val;
+                pinstr->val[intindex++] = (int)val;
                 break;
             }
 
