@@ -14,12 +14,13 @@ int main(void)
     for (int i = 0; i < sizeof inp / sizeof *inp; ++i) {
         // printf("\"%s\"\n", inp[i]);
         char buf[4];
-        int a[3] = {0};
-        int match = sscanf(inp[i], " %3[^,] ,%i ,%i ,%i", buf, &a[0], &a[1], &a[2]);
+        int len = 0;
+        long a[3] = {0};
+        int match = sscanf(inp[i], " %3[^,]%n ,%li ,%li ,%li", buf, &len, &a[0], &a[1], &a[2]);
         if (match > 0) {
-            printf("\"%s\": ", buf);
+            printf("\"%s\" (%i) : ", buf, len);
             for (int j = 1; j < match; ++j) {
-                printf("%i=%i ", j, a[j-1]);
+                printf("%i=%li ", j, a[j-1]);
             }
         }
         printf("\n");
