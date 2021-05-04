@@ -12,7 +12,7 @@ int main(int argc, char *argv[])
 
     // Convert to int
     int n = atoi(argv[1]);
-    if (n < 2) {
+    if (n < 1) {
         fprintf(stderr, "Error: that's not a list length.\n");
         exit(2);
     }
