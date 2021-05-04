@@ -26,14 +26,13 @@ int main(int argc, char *argv[])
 
     // Seed RNG
     srand((unsigned int)time(NULL));
-    rand();
 
-    // Init order
+    // Init
     for (int i = 0; i < n; ++i) {
         list[i] = i + 1;
     }
 
-    // Rand order
+    // Shuffle
     for (int i = 0; i < n; ++i) {
         int j = (int)((unsigned int)rand() / ((RAND_MAX + 1U) / (unsigned int)n));
         int t = list[i];
@@ -41,7 +40,7 @@ int main(int argc, char *argv[])
         list[j] = t;
     }
 
-    // Print order
+    // Print
     for (int i = 0; i < n - 1; ++i) {
         printf("%i,", list[i]);
     }
