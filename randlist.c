@@ -1,7 +1,7 @@
-#include <stdio.h>
-#include <stdlib.h>
-#include <limits.h>
-#include <time.h>
+#include <stdio.h>   // printf
+#include <stdlib.h>  // atol, srand, rand, RAND_MAX
+#include <limits.h>  // INT_MAX
+#include <time.h>    // time (for srand)
 
 #define LEN   (10)
 #define BASE   (1)
@@ -9,34 +9,39 @@
 
 int main(int argc, char *argv[])
 {
+    int len    = LEN;
+    int base   = BASE;
+    int repeat = REPEAT;
+
     // List length
-    int len = LEN;
     if (argc > 1) {
-        len = atoi(argv[1]);
-        if (len < 1) {
-            fprintf(stderr, "List length must be greater than zero.\n");
+        long try = atol(argv[1]);
+        if (try < 1 || try > INT_MAX) {
+            fprintf(stderr, "List length must be between 1 and %u.\n", INT_MAX);
             exit(1);
         }
+        len = (int)try;
     }
 
     // Base value
-    int base = BASE;
     if (argc > 2) {
-        base = atoi(argv[2]);
-        if (base > INT_MAX - len) {
-            fprintf(stderr, "For length %i, maximum base value is %i.\n", len, INT_MAX - len);
+        long try = atol(argv[2]);
+        long max = INT_MAX - (len - 1);
+        if (try > max) {
+            fprintf(stderr, "For length %i, maximum base value is %li.\n", len, max);
             exit(2);
         }
+        base = (int)try;
     }
 
     // Repeat count
-    int repeat = REPEAT;
     if (argc > 3) {
-        repeat = atoi(argv[3]);
-        if (repeat < 1) {
-            fprintf(stderr, "Repeat count must be greater than zero.\n");
+        long try = atol(argv[3]);
+        if (try < 1 || try > INT_MAX) {
+            fprintf(stderr, "Repeat count must be between 1 and %u.\n", INT_MAX);
             exit(3);
         }
+        repeat = (int)try;
     }
 
     // No more than 3 command line arguments
@@ -65,9 +70,9 @@ int main(int argc, char *argv[])
         // Shuffle
         for (int i = 0; i < len; ++i) {
             int j = (int)((unsigned int)rand() / ((RAND_MAX + 1U) / (unsigned int)len));
-            int t = list[i];
+            int k = list[i];
             list[i] = list[j];
-            list[j] = t;
+            list[j] = k;
         }
 
         // Print
@@ -78,7 +83,6 @@ int main(int argc, char *argv[])
 
     }
 
-    // Done
     free(list);
     return 0;
 }
