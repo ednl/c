@@ -11,7 +11,6 @@
 
 int main(void)
 {
-    unsigned long long i = 0;
     mpz_t p, q, t;
     mpf_t f1, f2;
     mpz_init_set_si(p, 1);
@@ -22,21 +21,21 @@ int main(void)
 
     srand(time(NULL));
 
-    while(i < (1ull << 20)) {  // ~10M
-        mpz_set(t, p);
-        if (rand() / ((RAND_MAX + 1u) / 2)) {
-            mpz_add(p, p, q);
-        } else {
-            mpz_sub(p, p, q);
+    for (unsigned int i = 0; i < 10; ++i) {
+        for (unsigned int j = 0; j < 1000000; ++j) {
+            mpz_set(t, p);
+            if (rand() / ((RAND_MAX + 1u) / 2)) {
+                mpz_add(p, p, q);
+            } else {
+                mpz_sub(p, p, q);
+            }
+            mpz_set(q, t);
         }
-        mpz_set(q, t);
 
-        if (!(++i % 1000000ull)) {
-            mpf_set_z(f1, p);
-            mpf_set_z(f2, q);
-            mpf_div(f1, f1, f2);
-            printf("%12llu %9.3lf\n", i, mpf_get_d(f1));
-        }
+        mpf_set_z(f1, p);
+        mpf_set_z(f2, q);
+        mpf_div(f1, f1, f2);
+        printf("%3u %9.3lf\n", i, mpf_get_d(f1));
     }
 
     mpz_clear(p);
