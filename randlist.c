@@ -14,7 +14,7 @@ int main(int argc, char *argv[])
     int repeat = REPEAT;
 
     // List length
-    if (argc > 1) {
+    if (argc > 1 && argv && argv[1]) {
         long try = atol(argv[1]);
         if (try < 1 || try > INT_MAX) {
             fprintf(stderr, "List length must be between 1 and %u.\n", INT_MAX);
@@ -24,7 +24,7 @@ int main(int argc, char *argv[])
     }
 
     // Base value
-    if (argc > 2) {
+    if (argc > 2 && argv && argv[2]) {
         long try = atol(argv[2]);
         long max = INT_MAX - (len - 1);
         if (try > max) {
@@ -35,7 +35,7 @@ int main(int argc, char *argv[])
     }
 
     // Repeat count
-    if (argc > 3) {
+    if (argc > 3 && argv && argv[3]) {
         long try = atol(argv[3]);
         if (try < 1 || try > INT_MAX) {
             fprintf(stderr, "Repeat count must be between 1 and %u.\n", INT_MAX);
@@ -46,7 +46,7 @@ int main(int argc, char *argv[])
 
     // No more than 3 command line arguments
     if (argc > 4) {
-        fprintf(stderr, "Useage: %s [length=%i] [base=%i] [repeat=%i]\n", argv[0], LEN, BASE, REPEAT);
+        fprintf(stderr, "Usage: %s [length=%i] [base=%i] [repeat=%i]\n", argv && argv[0] ? argv[0] : "randlist", LEN, BASE, REPEAT);
         exit(4);
     }
 

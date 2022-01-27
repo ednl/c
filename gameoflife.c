@@ -200,9 +200,9 @@ int main(int argc, char *argv[])
 	clock_t t;
 	srand((unsigned int)time(NULL));
 
-	if (argc < 4 || argc > 5) {
+	if (argc < 4 || argc > 5 || !argv) {
 		puts("Game of Life - Ewoud Dronkert 2019");
-		printf("Usage: %s <width %u..%u> <height %u..%u> <initial occupation 0..100> [delay 0..100]\n", argv[0], MINSIZE, MAXSIZE, MINSIZE, MAXSIZE);
+		printf("Usage: %s <width %u..%u> <height %u..%u> <initial occupation 0..100> [delay 0..100]\n", argv && argv[0] ? argv[0] : "gameoflife", MINSIZE, MAXSIZE, MINSIZE, MAXSIZE);
 		return 1;
 	}
 

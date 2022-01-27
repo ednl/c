@@ -47,7 +47,7 @@ int main(int argc, char *argv[])
     struct tm T;
 
     // Use command line parameter or current year
-    if (argc > 1) {
+    if (argc > 1 && argv && argv[1]) {
         long a = atol(argv[1]);
         if (a >= 1000 && a <= 9999) {
             y = (int)a;

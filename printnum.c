@@ -63,7 +63,7 @@ int main(int argc, char *argv[])
 	uint32_t i, n = 0xdeadbeef;
 	unsigned char len, b = 16;
 
-	if (argc >= 2)
+	if (argc > 1 && argv && argv[1])
 		n = (uint32_t)atoi(argv[1]);
 
 	if (argc == 3)

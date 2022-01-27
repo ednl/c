@@ -76,16 +76,16 @@ int countprimes(uint8_t *a, int maxints)
     return ncount;
 }
 
-int main(int argc, char **argv)
+int main(int argc, char *argv[])
 {
     uint8_t *a;
     clock_t t;
     int maxints = 1000000;
     int count;
 
-    if (argc>1)
-        sscanf(argv[1],"%d",&maxints);
-    a = arralloc(maxints/2);
+    if (argc > 1 && argv && argv[1])
+        sscanf(argv[1], "%d", &maxints);
+    a = arralloc(maxints / 2);
 
     count = 0;
     t = clock();

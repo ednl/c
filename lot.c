@@ -209,7 +209,7 @@ int main(int argc, char *argv[])
 {
 	unsigned char i;
 
-	if (argc > 1)
+	if (argc > 1 && argv && argv[1])
 		allowloop = atoi(argv[1]);
 
 	init();

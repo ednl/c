@@ -108,7 +108,6 @@ static int inc(unsigned char *a, int len)
     return len;
 }
 
-// int main(int argc, char *argv[])
 int main(void)
 {
     // int len = 3;

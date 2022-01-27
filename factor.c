@@ -39,7 +39,7 @@ int main (int argc, const char* argv[])
 	clock_t t = clock();
 
 	// Get integer n as command line argument, reset on fail, set r = integer root of n, print n
-	if (argc > 1) {
+	if (argc > 1 && argv && argv[1]) {
 		if (sscanf(argv[1], "%llu", &n) == 1) {
 			r = introot(n);
 		} else {

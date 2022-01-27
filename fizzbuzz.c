@@ -27,11 +27,16 @@ static int lcm(int a, int b)
 
 int main(int argc, char *argv[])
 {
+    if (!argc || !argv) {
+        fprintf(stderr, "\nArgument list error (null pointer exception)\n\n");
+        return 1;
+    }
+
     int fizz = 3, buzz = 5, count = 15;
 
     if (argc > 4) {
         fprintf(stderr, "\nArguments: [fizz buzz] [count]\n\n");
-        return 1;
+        return 2;
     } else if (argc == 2) {
         // One argument = count
         count = atoi(argv[1]);
@@ -58,7 +63,7 @@ int main(int argc, char *argv[])
         fprintf(stderr,
             "\nArgument range: fizz %u..%u, buzz %u..%u, count %u..%u\n\n",
             MINFIZZ, MAXFIZZ, MINFIZZ, MAXFIZZ, MINFIZZ, MAXCOUNT);
-        return 2;
+        return 3;
     }
 
     // Summary

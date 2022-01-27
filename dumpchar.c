@@ -23,7 +23,7 @@ static void printbuf(int i)
 
 int main(int argc, char *argv[])
 {
-    if (argc <= 1) {
+    if (argc < 2 || !argv || !argv[1]) {
         fprintf(stderr, "Usage: dumpchar <file name> [number of chars]\n");
         return 1;
     }
