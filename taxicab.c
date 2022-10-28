@@ -1,3 +1,6 @@
+// Programmeeropdracht voor eerstejaars natuurkunde aan de UvA
+// via Ivo van Vulpen https://twitter.com/IvovanVulpen/status/1585907956071432198
+
 #include <stdio.h>  // printf
 #include <math.h>   // log, exp, ceil
 
@@ -5,32 +8,26 @@
 #define N 2U  // find N solutions
 #define M 2U  // multiplicity = how many different ways
 
+// Remember intermediate solutions
 typedef struct {
     unsigned int a, b;
 } Solution;
-
-// Remember intermediate results
 static Solution sol[M] = {0};
-
-// (x-1)^(1/3) rounded up = upper bound for b where x = 1^3 + b^3
-// NB: x > 1 because log(x - 1)
-static unsigned int taxicabmax(unsigned int x)
-{
-    double r = ceil(exp(log(x - 1) / 3));
-    return (unsigned int)r;
-}
 
 int main(void)
 {
     unsigned int x = 2;  // first number 'x' to be explored must be greater than 1
     unsigned int n = 0;  // number of solutions found so far
 
+    // Find N solutions
     while (n < N) {
         unsigned int a = 1;
-        unsigned int b = taxicabmax(x);
+        double r = ceil(exp(log(x - 1) / 3));  // (x-1)^(1/3) rounded up = upper bound for b where x = 1 + b^3
+        unsigned int b = (unsigned int)r;
         unsigned int sum = 1 + b * b * b;
         unsigned int m = 0;
 
+        // Function is symmetrical in 'a' and 'b', so solutions are distinct for a <= b
         while (a <= b) {
             // Initially: sum >= x, so start with greater-than test
             // a <= b, meaning 'b' jumps are at least as large as 'a' jumps, so this does not need to be a loop
@@ -57,16 +54,19 @@ int main(void)
                 b -= 1;
             }
         }
+
         // Did we find at least M solutions for a^3 + b^3 = x?
         if (m >= M) {
             n++;
             printf("%u", x);
-            while (m--) {
+            while (m--)
                 printf(" = %u^3 + %u^3", sol[m].a, sol[m].b);
-            }
             printf("\n");
         }
+
+        // Next number to be explored
         x++;
     }
+
     return 0;
 }
