@@ -1,7 +1,7 @@
 #include <stdio.h>   // printf
 #include <stdlib.h>  // qsort
 
-#define N 100U
+#define N 213U
 #define M ((N * (N + 1U)) >> 1U)
 
 typedef struct {
