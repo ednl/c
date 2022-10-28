@@ -5,21 +5,22 @@
 #include <math.h>   // log, exp, ceil
 
 // Assignment: find the second (N=2) number that can be expressed as a^3 + b^3 in two (M=2) different ways.
-#define N 2U  // find N solutions
-#define M 2U  // multiplicity = how many different ways
+#define N     2U  // find N numbers
+#define M     2U  // multiplicity = how many different ways
+#define SIZE 16U  // solution stack size, 16 is more than what is possible for 64-bit unsigned int, see https://en.wikipedia.org/wiki/Taxicab_number#Known_taxicab_numbers
 
-// Remember intermediate solutions
+// Remember all solutions per number
 typedef struct {
     unsigned int a, b;
 } Solution;
-static Solution sol[M] = {0};
+static Solution sol[SIZE] = {0};
 
 int main(void)
 {
     unsigned int x = 2;  // first number 'x' to be explored must be greater than 1
     unsigned int n = 0;  // number of solutions found so far
 
-    // Find N solutions
+    // Find N numbers
     while (n < N) {
         unsigned int a = 1;
         double r = ceil(exp(log(x - 1) / 3));  // (x-1)^(1/3) rounded up = upper bound for b where x = 1 + b^3
@@ -46,7 +47,8 @@ int main(void)
             }
             // Did we find a solution for x = a^3 + b^3?
             if (sum == x) {
-                sol[m++] = (Solution){a, b};  // save for later
+                if (m < SIZE)
+                    sol[m++] = (Solution){a, b};  // save for later
                 // Prepare to find next solution
                 // Both increase 'a' and decrease 'b' to avoid f(a,a+1)=f(a+1,a) in the next loop, which are not distinct solutions
                 sum += 3 * (a * (a + 1) - b * (b - 1));
@@ -55,9 +57,9 @@ int main(void)
             }
         }
 
-        // Did we find at least M solutions for a^3 + b^3 = x?
+        // Did we find at least M solutions for x = a^3 + b^3?
         if (m >= M) {
-            n++;
+            n++;  // one more number found
             printf("%u", x);
             while (m--)
                 printf(" = %u^3 + %u^3", sol[m].a, sol[m].b);
