@@ -48,7 +48,7 @@ int main(void)
             if (sum == x) {
                 sol[m++] = (Solution){a, b};  // save for later
                 // Prepare to find next solution
-                // Both increase 'a' and decrease 'b' to avoid f(a+1,b)=f(a,b+1) in the next loop, which are not distinct solutions
+                // Both increase 'a' and decrease 'b' to avoid f(a,a+1)=f(a+1,a) in the next loop, which are not distinct solutions
                 sum += 3 * (a * (a + 1) - b * (b - 1));
                 a += 1;
                 b -= 1;
