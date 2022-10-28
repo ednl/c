@@ -5,7 +5,7 @@
 #include <math.h>   // log, exp, ceil
 
 // Assignment: find the second (N=2) number that can be expressed as a^3 + b^3 in two (M=2) different ways.
-#define N     2U  // find N numbers
+#define N    43U  // find N numbers
 #define M     2U  // multiplicity = how many different ways
 #define SIZE 16U  // solution stack size, 16 is more than what is possible for 64-bit unsigned int, see https://en.wikipedia.org/wiki/Taxicab_number#Known_taxicab_numbers
 
@@ -18,12 +18,12 @@ static Solution sol[SIZE] = {0};
 int main(void)
 {
     unsigned int x = 2;  // first number 'x' to be explored must be greater than 1
-    unsigned int n = 0;  // number of solutions found so far
+    unsigned int n = 0;  // count numbers found
 
     // Find N numbers
     while (n < N) {
         unsigned int a = 1;
-        double r = ceil(exp(log(x - 1) / 3));  // (x-1)^(1/3) rounded up = upper bound for b where x = 1 + b^3
+        float r = ceilf(exp2f(log2f(x - 1) / 3));  // (x-1)^(1/3) rounded up = upper bound for b where x = 1 + b^3
         unsigned int b = (unsigned int)r;
         unsigned int sum = 1 + b * b * b;
         unsigned int m = 0;
@@ -59,8 +59,7 @@ int main(void)
 
         // Did we find at least M solutions for x = a^3 + b^3?
         if (m >= M) {
-            n++;  // one more number found
-            printf("%u", x);
+            printf("%u: %u", ++n, x);
             while (m--)
                 printf(" = %u^3 + %u^3", sol[m].a, sol[m].b);
             printf("\n");
