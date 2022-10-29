@@ -5,7 +5,7 @@
 #include <math.h>   // log, exp, ceil
 
 // Assignment: find the second (N=2) number that can be expressed as a^3 + b^3 in two (M=2) different ways.
-#define N    43U  // find N numbers
+#define N   150U  // find N numbers
 #define M     2U  // multiplicity = how many different ways
 #define SIZE 16U  // solution stack size, 16 is more than what is possible for 64-bit unsigned int, see https://en.wikipedia.org/wiki/Taxicab_number#Known_taxicab_numbers
 
