@@ -15,7 +15,6 @@ static void Opgave2(void)
                     }
                     aa = a;
                     bb = b;
-                    break;
                 }
                 b++;
                 b3 = b * b * b;
@@ -23,7 +22,6 @@ static void Opgave2(void)
             a++;
             a3 = a * a * a;
         }
-
     }
 }
 
