@@ -12,7 +12,7 @@ int main(void)
         // n = a^3 + b^3 where a <= b for distinct sums
         // => max value of a is b => n = 2a^3 => a^3 = n/2
         int n2 = ++n / 2, a = 1, a3 = 1, aa = 0, bb = 0;
-        while (a3 <= n2) {
+        while (a3 <= n2) {  // a^3 <= n/2
             int b = a, sum = a3 * 2;
             while (sum <= n) {
                 if (sum == n) {
