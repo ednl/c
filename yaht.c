@@ -1,4 +1,4 @@
-// Simulate games of Yahtzee to determine
+// Simulate throwing with dice repeatedly to determine
 // chance of 'yahtzee' (5 the same) after 3 tries
 //
 // By E. Dronkert https://github.com/ednl
@@ -8,6 +8,7 @@
 #include <time.h>
 
 #define DICE  5UL
+#define MAJORITY ((DICE + 1UL) >> 1)
 #define FACES 6UL
 #define TRIES 3UL
 #define GAMES 10000000UL
@@ -43,11 +44,14 @@ int main(void)
                 hist[roll()]++;
 
             // Find most common value
-            for (uint64_t i = 1; i <= FACES; ++i)
-                if (hist[i] > count) {
-                    count = hist[i];
-                    best = i;
-                }
+            if (count < MAJORITY) {
+                for (uint64_t i = 1; i <= FACES; ++i)
+                    if (hist[i] > count) {
+                        count = hist[i];
+                        best = i;
+                    }
+            } else
+                count = hist[best];
         }
         // Test for yahtzee
         if (count == DICE)
