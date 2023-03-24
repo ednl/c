@@ -1,3 +1,17 @@
+/*****************************************************************************
+ * GREAT CIRCLE DISTANCE
+ * Calculates the surface distance for two lat/lon points on Earth. Use as a
+ * command line tool with exactly four arguments:
+ *
+ *     greatcircledist lat1 lon1 lat2 lon2
+ *
+ * where all arguments are floating point numbers in degrees. Outputs distance
+ * in metres between (lat1,lon1) and (lat2,lon2) with precision in centimetres.
+ *
+ * Author: E. Dronkert https://github.com/ednl
+ * Licence: MIT (free to use as you like, with attribution)
+ *****************************************************************************/
+
 #include <stdio.h>   // printf, fprintf
 #include <stdlib.h>  // strtod
 #include <string.h>  // strlen
@@ -13,8 +27,8 @@
 #define D2R  1.74532925199432953e-2  // pi/180 (degrees to radians)
 #define D2RH 8.72664625997164656e-3  // pi/360 (degrees to radians, half)
 
-#define R_POL   6.357e+6         // earth polar radius in metre
-#define R_EQT   6.378e+6         // earth equatorial radius in metre
+#define R_POL   6.357e+6         // earth polar radius in metres
+#define R_EQT   6.378e+6         // earth equatorial radius in metres
 #define R_POL2  (R_POL * R_POL)  // square polar radius
 #define R_EQT2  (R_EQT * R_EQT)  // square equatorial radius
 
