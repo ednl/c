@@ -1,7 +1,7 @@
 /*****************************************************************************
  * GREAT CIRCLE DISTANCE
- * Calculates the surface distance for two lat/lon points on Earth. Use as a
- * command line tool with exactly four arguments:
+ * Calculates the surface distance between two lat/lon points on Earth. Use as
+ * a command line tool with exactly four arguments:
  *
  *     greatcircledist lat1 lon1 lat2 lon2
  *
