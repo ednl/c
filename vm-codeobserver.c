@@ -34,7 +34,7 @@ static size_t fieldcount(const char * const csvline)
     return fields;
 }
 
-static void* del_vm(VirtualMachine ** vm)
+static void * del_vm(VirtualMachine ** vm)
 {
     if (vm && *vm) {
         free((*vm)->mem);
@@ -212,7 +212,7 @@ static int tick(VirtualMachine * vm)
     return 0;
 }
 
-static int run(VirtualMachine *vm)
+static int run(VirtualMachine * vm)
 {
     if (!vm)
         return -1;
