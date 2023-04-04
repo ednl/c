@@ -3,13 +3,13 @@
 // Puzzle designed by https://www.reddit.com/user/codeobserver for https://codeguppy.com
 // Solution by E. Dronkert https://github.com/ednl
 
-#include <stdio.h>    // printf
+#include <stdio.h>    // printf, sscanf
 #include <stdlib.h>   // malloc, free
-#include <string.h>   // memset
 #include <stdbool.h>  // bool
 
-#define STACKSIZE 16
-#define REGISTERS  4
+#define MEMORYSIZE 64  // actually used by puzzle: 50
+#define STACKSIZE  16  // actually used by puzzle: 2
+#define REGISTERS   4  // given by puzzle
 
 // Program code
 static const char *input = "11,0,10,42,6,255,30,0,11,0,0,11,1,1,11,3,1,60,1,10,2,0,20, 2,1,60,2,10,0,1,10,1,2,11,2,1,20,3,2,31,2,30,2,41,3,2,19,31,0,50";
@@ -36,75 +36,45 @@ static size_t fieldcount(const char * const csvline)
 
 static void* del_vm(VirtualMachine ** vm)
 {
-    if (!vm)
-        return NULL;
-    if (*vm) {
+    if (vm && *vm) {
         free((*vm)->mem);
         free((*vm)->stk);
         free((*vm)->reg);
+        free(*vm);
+        *vm = NULL;
     }
-    free(*vm);
-    *vm = NULL;
     return NULL;
 }
 
-static VirtualMachine * new_vm(size_t memsize, size_t stksize, size_t regsize)
+static VirtualMachine * new_vm(const char * const csvline)
 {
     VirtualMachine *vm = calloc(1, sizeof *vm);  // also resets all vars
     if (!vm)
         return NULL;
-    if (memsize) {
-        vm->mem = calloc(memsize, sizeof *(vm->mem));
-        if (!vm->mem)
-            return del_vm(&vm);
-        vm->memsize = memsize;
-    }
-    if (stksize) {
-        vm->stk = calloc(stksize, sizeof *(vm->stk));
-        if (!vm->mem)
-            return del_vm(&vm);
-        vm->stksize = stksize;
-    }
-    if (regsize) {
-        vm->reg = calloc(regsize, sizeof *(vm->reg));
-        if (!vm->mem)
-            return del_vm(&vm);
-        vm->regsize = regsize;
-    }
-    return vm;
-}
-
-static bool loadprog(VirtualMachine ** vm, const char * const csvline)
-{
-    if (!vm)
-        return false;
     size_t progsize = fieldcount(csvline);
-    if (!*vm)
-        *vm = new_vm(progsize, STACKSIZE, REGISTERS);
-    if (!*vm)
-        return false;
-    if ((*vm)->memsize < progsize) {
-        size_t bytecount = progsize * sizeof *(*vm)->mem;
-        void *p = realloc((*vm)->mem, bytecount);
-        if (!p)
-            return false;
-        (*vm)->mem = p;
-        (*vm)->memsize = progsize;
-        memset((*vm)->mem, 0, bytecount);
-    }
-    (*vm)->progsize = 0;
+    size_t memsize = progsize ? progsize : MEMORYSIZE;
+    vm->mem = calloc(memsize, sizeof *(vm->mem));
+    vm->stk = calloc(STACKSIZE, sizeof *(vm->stk));
+    vm->reg = calloc(REGISTERS, sizeof *(vm->reg));
+    if (!vm->mem || !vm->stk || !vm->reg)
+        return del_vm(&vm);
+    vm->memsize = memsize;
+    vm->stksize = STACKSIZE;
+    vm->regsize = REGISTERS;
     const char *c = csvline;
-    while (*c != '\0' && (*vm)->progsize < (*vm)->memsize) {
+    while (*c != '\0' && vm->progsize < vm->memsize) {
         int val;
         if (sscanf(c, "%d", &val) != 1)
-            return false;
-        (*vm)->mem[(*vm)->progsize++] = val;
+            return del_vm(&vm);
+        vm->mem[vm->progsize++] = val;
         while (*c != '\0' && *c != ',')
             ++c;
         if (*c == ',')
             ++c;
     }
-    return (*vm)->progsize == progsize;
+    if (vm->progsize != progsize)
+        return del_vm(&vm);
+    return vm;
 }
 
 static int tick(VirtualMachine * vm)
@@ -254,13 +224,8 @@ static int run(VirtualMachine *vm)
 
 int main(void)
 {
-    VirtualMachine *vm = NULL;
-    if (!loadprog(&vm, input)) {
-        printf("load\n");
-        del_vm(&vm);
-        exit(1);
-    }
-    printf("exit=%d\n", run(vm));  // prints first 10 Fibonacci numbers
+    VirtualMachine *vm = new_vm(input);
+    int exitcode = run(vm);  // prints first 10 Fibonacci numbers
     del_vm(&vm);
-    return 0;
+    return exitcode;
 }
