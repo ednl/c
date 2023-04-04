@@ -5,16 +5,20 @@
 
 #include <stdio.h>    // printf
 #include <stdlib.h>   // malloc, free
+#include <string.h>   // memset
 #include <stdbool.h>  // bool
+
+#define STACKSIZE 16
+#define REGISTERS  4
 
 // Program code
 static const char *input = "11,0,10,42,6,255,30,0,11,0,0,11,1,1,11,3,1,60,1,10,2,0,20, 2,1,60,2,10,0,1,10,1,2,11,2,1,20,3,2,31,2,30,2,41,3,2,19,31,0,50";
 
 typedef struct {
     int *mem, *stk, *reg;
-    int result;
     size_t pc, sp, tick, tock;
     size_t memsize, progsize, stksize, regsize;
+    int result;
     bool halted, silent;
 } VirtualMachine;
 
@@ -42,9 +46,7 @@ static void* del_vm(VirtualMachine *vm)
 
 static VirtualMachine* new_vm(size_t memsize, size_t stksize, size_t regsize)
 {
-    if (!memsize)
-        return NULL;
-    VirtualMachine *vm = calloc(1, sizeof *vm);  // resets all vars
+    VirtualMachine *vm = calloc(1, sizeof *vm);  // also resets all vars
     if (!vm)
         return NULL;
     if (memsize) {
@@ -68,23 +70,35 @@ static VirtualMachine* new_vm(size_t memsize, size_t stksize, size_t regsize)
     return vm;
 }
 
-static bool saveprog(VirtualMachine *vm, const char * const csvline)
+static bool loadprog(VirtualMachine *vm, const char * const csvline)
 {
-    if (!vm || !vm->memsize || !csvline || !*csvline)
+    size_t progsize = fieldcount(csvline);
+    if (!vm)
+        vm = new_vm(progsize, STACKSIZE, REGISTERS);
+    if (!vm)
         return false;
+    if (vm->memsize < progsize) {
+        size_t bytecount = progsize * sizeof *vm->mem;
+        void *p = realloc(vm->mem, bytecount);
+        if (!p)
+            return false;
+        vm->mem = p;
+        vm->memsize = progsize;
+        memset(vm->mem, 0, bytecount);
+    }
     vm->progsize = 0;
     const char *c = csvline;
-    while (*c && vm->progsize < vm->memsize) {
+    while (*c != '\0' && vm->progsize < vm->memsize) {
         int val;
         if (sscanf(c, "%d", &val) != 1)
             return false;
         vm->mem[vm->progsize++] = val;
-        while (*c && *c != ',')
+        while (*c != '\0' && *c != ',')
             ++c;
         if (*c == ',')
             ++c;
     }
-    return true;
+    return vm->progsize == progsize;
 }
 
 static int tick(VirtualMachine *vm)
@@ -167,19 +181,19 @@ static int tick(VirtualMachine *vm)
             vm->reg[par[0]] = vm->stk[--vm->sp];
             break;
         case 40: // JP addr
-            if (par[0] >= vm->progsize) {
+            if (par[0] < 0 || (size_t)par[0] >= vm->progsize) {
                 vm->halted = true;
                 return -7;
             }
-            vm->pc = par[0];
+            vm->pc = (size_t)par[0];
             break;
         case 41: // JL Rx Ry addr
             if (vm->reg[par[0]] < vm->reg[par[1]]) {
-                if (par[2] >= vm->progsize) {
+                if (par[2] < 0 || (size_t)par[2] >= vm->progsize) {
                     vm->halted = true;
                     return -8;
                 }
-                vm->pc = par[2];
+                vm->pc = (size_t)par[2];
             }
             break;
         case 42: // CALL addr (+ push ret-addr)
@@ -187,12 +201,12 @@ static int tick(VirtualMachine *vm)
                 vm->halted = true;
                 return -9;
             }
-            if (par[0] >= vm->progsize) {
+            if (par[0] < 0 || (size_t)par[0] >= vm->progsize) {
                 vm->halted = true;
                 return -10;
             }
-            vm->stk[vm->sp++] = vm->pc;
-            vm->pc = par[0];
+            vm->stk[vm->sp++] = (int)vm->pc;
+            vm->pc = (size_t)par[0];
             break;
         case 50: // RET (+ pop ret-addr)
             if (vm->sp == 0 || vm->sp > vm->stksize) {
@@ -200,11 +214,11 @@ static int tick(VirtualMachine *vm)
                 return -11;
             }
             int addr = vm->stk[--vm->sp];
-            if (addr >= vm->progsize) {
+            if (addr < 0 || (size_t)addr >= vm->progsize) {
                 vm->halted = true;
                 return -12;
             }
-            vm->pc = addr;
+            vm->pc = (size_t)addr;
             break;
         case 60: // PRINT Rsrc
             vm->result = vm->reg[par[0]];
@@ -234,9 +248,9 @@ static int run(VirtualMachine *vm)
 
 int main(void)
 {
-    int proglen = fieldcount(input);
-    VirtualMachine *vm = new_vm(proglen, 16, 4);  // stack size used by puzzle = 2
-    saveprog(vm, input);
+    VirtualMachine *vm = NULL;
+    loadprog(vm, input);
     run(vm);  // prints first 10 Fibonacci numbers
+    del_vm(vm);
     return 0;
 }
