@@ -34,17 +34,21 @@ static size_t fieldcount(const char * const csvline)
     return fields;
 }
 
-static void* del_vm(VirtualMachine *vm)
+static void* del_vm(VirtualMachine ** vm)
 {
-    free(vm->mem);
-    free(vm->stk);
-    free(vm->reg);
-    free(vm);
-    vm = NULL;
+    if (!vm)
+        return NULL;
+    if (*vm) {
+        free((*vm)->mem);
+        free((*vm)->stk);
+        free((*vm)->reg);
+    }
+    free(*vm);
+    *vm = NULL;
     return NULL;
 }
 
-static VirtualMachine* new_vm(size_t memsize, size_t stksize, size_t regsize)
+static VirtualMachine * new_vm(size_t memsize, size_t stksize, size_t regsize)
 {
     VirtualMachine *vm = calloc(1, sizeof *vm);  // also resets all vars
     if (!vm)
@@ -52,56 +56,58 @@ static VirtualMachine* new_vm(size_t memsize, size_t stksize, size_t regsize)
     if (memsize) {
         vm->mem = calloc(memsize, sizeof *(vm->mem));
         if (!vm->mem)
-            return del_vm(vm);
+            return del_vm(&vm);
         vm->memsize = memsize;
     }
     if (stksize) {
         vm->stk = calloc(stksize, sizeof *(vm->stk));
         if (!vm->mem)
-            return del_vm(vm);
+            return del_vm(&vm);
         vm->stksize = stksize;
     }
     if (regsize) {
         vm->reg = calloc(regsize, sizeof *(vm->reg));
         if (!vm->mem)
-            return del_vm(vm);
+            return del_vm(&vm);
         vm->regsize = regsize;
     }
     return vm;
 }
 
-static bool loadprog(VirtualMachine *vm, const char * const csvline)
+static bool loadprog(VirtualMachine ** vm, const char * const csvline)
 {
-    size_t progsize = fieldcount(csvline);
-    if (!vm)
-        vm = new_vm(progsize, STACKSIZE, REGISTERS);
     if (!vm)
         return false;
-    if (vm->memsize < progsize) {
-        size_t bytecount = progsize * sizeof *vm->mem;
-        void *p = realloc(vm->mem, bytecount);
+    size_t progsize = fieldcount(csvline);
+    if (!*vm)
+        *vm = new_vm(progsize, STACKSIZE, REGISTERS);
+    if (!*vm)
+        return false;
+    if ((*vm)->memsize < progsize) {
+        size_t bytecount = progsize * sizeof *(*vm)->mem;
+        void *p = realloc((*vm)->mem, bytecount);
         if (!p)
             return false;
-        vm->mem = p;
-        vm->memsize = progsize;
-        memset(vm->mem, 0, bytecount);
+        (*vm)->mem = p;
+        (*vm)->memsize = progsize;
+        memset((*vm)->mem, 0, bytecount);
     }
-    vm->progsize = 0;
+    (*vm)->progsize = 0;
     const char *c = csvline;
-    while (*c != '\0' && vm->progsize < vm->memsize) {
+    while (*c != '\0' && (*vm)->progsize < (*vm)->memsize) {
         int val;
         if (sscanf(c, "%d", &val) != 1)
             return false;
-        vm->mem[vm->progsize++] = val;
+        (*vm)->mem[(*vm)->progsize++] = val;
         while (*c != '\0' && *c != ',')
             ++c;
         if (*c == ',')
             ++c;
     }
-    return vm->progsize == progsize;
+    return (*vm)->progsize == progsize;
 }
 
-static int tick(VirtualMachine *vm)
+static int tick(VirtualMachine * vm)
 {
     if (!vm)
         return -1;  // TODO: define error codes
@@ -249,8 +255,12 @@ static int run(VirtualMachine *vm)
 int main(void)
 {
     VirtualMachine *vm = NULL;
-    loadprog(vm, input);
-    run(vm);  // prints first 10 Fibonacci numbers
-    del_vm(vm);
+    if (!loadprog(&vm, input)) {
+        printf("load\n");
+        del_vm(&vm);
+        exit(1);
+    }
+    printf("exit=%d\n", run(vm));  // prints first 10 Fibonacci numbers
+    del_vm(&vm);
     return 0;
 }
