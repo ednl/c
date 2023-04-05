@@ -6,19 +6,53 @@
 #include <stdio.h>    // printf, sscanf
 #include <stdlib.h>   // malloc, free
 #include <stdbool.h>  // bool
+#include <stdint.h>   // int64_t
 
 #define MEMORYSIZE 64  // actually used by puzzle: 50
 #define STACKSIZE  16  // actually used by puzzle: 2
 #define REGISTERS   4  // given by puzzle
 
+// Opcode parameter addressing modes
+#define IMM 1
+#define REG 2
+#define MEM 3
+
+#define ERR_NULLPOINTER -1
+#define ERR_PC_OVERFLOW -2
+#define ERR_INVALID_OPCODE   -3
+#define ERR_PARAMETER_COUNT   -4
+#define ERR_STACK_FULL   -5
+#define ERR_STACK_EMPTY   -6
+// #define ERR_   -7
+// #define ERR_   -8
+// #define ERR_   -9
+// #define ERR_  -10
+// #define ERR_  -11
+// #define ERR_  -12
+
 // Program code
 static const char *input = "11,0,10,42,6,255,30,0,11,0,0,11,1,1,11,3,1,60,1,10,2,0,20, 2,1,60,2,10,0,1,10,1,2,11,2,1,20,3,2,31,2,30,2,41,3,2,19,31,0,50";
+
+typedef struct {
+    int opcode, parcount, parmode;
+    char name[6];
+} OpCode;
+
+static const OpCode lang[7][3] = {
+    {{ 0, 0,  0, "NOP"  }},
+    {{10, 2, 22, "MOVR" }, {11, 2,  12, "MOVV"}},
+    {{20, 2, 22, "ADD"  }, {21, 2,  22, "SUB" }},
+    {{30, 1,  2, "PUSH" }, {31, 1,   2, "POP" }},
+    {{40, 1,  3, "JP"   }, {41, 3, 322, "JL"  }, {42, 1, 3, "CALL"}},
+    {{50, 0,  0, "RET"  }},
+    {{60, 1,  2, "PRINT"}}
+};
 
 typedef struct {
     int *mem, *stk, *reg;
     size_t pc, sp, tick, tock;
     size_t memsize, progsize, stksize, regsize;
-    int result;
+    int64_t result;
     bool halted, silent;
 } VirtualMachine;
 
@@ -80,12 +114,12 @@ static VirtualMachine * new_vm(const char * const csvline)
 static int tick(VirtualMachine * vm)
 {
     if (!vm)
-        return -1;  // TODO: define error codes
+        return ERR_NULLPOINTER;
     if (vm->halted)
         return 0;
     if (vm->pc >= vm->progsize) {
         vm->halted = true;
-        return -2;
+        return ERR_PC_OVERFLOW;
     }
     // Get instruction
     vm->tick++;
@@ -120,12 +154,12 @@ static int tick(VirtualMachine * vm)
             break;
         default:  // invalid opcode
             vm->halted = true;
-            return -3;
+            return ERR_INVALID_OPCODE;
     }
     // Correct number of parameters available?
     if (i != parcount) {
         vm->halted = true;
-        return -4;
+        return ERR_PARAMETER_COUNT;
     }
     // TODO: validate parameters according to addressing mode
     // Execute instruction
@@ -145,14 +179,14 @@ static int tick(VirtualMachine * vm)
         case 30: // PUSH Rsrc
             if (vm->sp >= vm->stksize) {
                 vm->halted = true;
-                return -5;
+                return ERR_STACK_FULL;
             }
             vm->stk[vm->sp++] = vm->reg[par[0]];
             break;
         case 31: // POP Rdst
-            if (vm->sp == 0 || vm->sp > vm->stksize) {
+            if (vm->sp == 0) {
                 vm->halted = true;
-                return -6;
+                return ERR_STACK_EMPTY;
             }
             vm->reg[par[0]] = vm->stk[--vm->sp];
             break;
@@ -185,9 +219,9 @@ static int tick(VirtualMachine * vm)
             vm->pc = (size_t)par[0];
             break;
         case 50: // RET (+ pop ret-addr)
-            if (vm->sp == 0 || vm->sp > vm->stksize) {
+            if (vm->sp == 0) {
                 vm->halted = true;
-                return -11;
+                return ERR_STACK_EMPTY;
             }
             int addr = vm->stk[--vm->sp];
             if (addr < 0 || (size_t)addr >= vm->progsize) {
