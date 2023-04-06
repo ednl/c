@@ -7,6 +7,7 @@
 #include <stdlib.h>   // malloc, free
 #include <stdbool.h>  // bool
 #include <stdint.h>   // int64_t
+#include <limits.h>   // LONG_WIDTH
 
 #define MEMORYSIZE 64  // actually used by puzzle: 50
 #define STACKSIZE  16  // actually used by puzzle: 2
@@ -17,12 +18,12 @@
 #define REG 2
 #define MEM 3
 
-#define ERR_NULLPOINTER -1
-#define ERR_PC_OVERFLOW -2
-#define ERR_INVALID_OPCODE   -3
-#define ERR_PARAMETER_COUNT   -4
-#define ERR_STACK_FULL   -5
-#define ERR_STACK_EMPTY   -6
+#define ERR_NULLPOINTER     -1
+#define ERR_PC_OVERFLOW     -2
+#define ERR_INVALID_OPCODE  -3
+#define ERR_PARAMETER_COUNT -4
+#define ERR_STACK_FULL      -5
+#define ERR_STACK_EMPTY     -6
 // #define ERR_   -7
 // #define ERR_   -8
 // #define ERR_   -9
@@ -31,14 +32,16 @@
 // #define ERR_  -12
 
 // Program code
-static const char *input = "11,0,10,42,6,255,30,0,11,0,0,11,1,1,11,3,1,60,1,10,2,0,20, 2,1,60,2,10,0,1,10,1,2,11,2,1,20,3,2,31,2,30,2,41,3,2,19,31,0,50";
+static const char *input = "11,0,10,42,6,255,30,0,11,0,0,11,1,1,11,3,1,60,1,10,2,0,20,2,1,60,2,10,0,1,10,1,2,11,2,1,20,3,2,31,2,30,2,41,3,2,19,31,0,50";
 
+// Instruction
+// parmode: units = addr mode of 1st par, tens = addr mode of 2nd par, etc.
 typedef struct {
-    int opcode, parcount, parmode;
+    int64_t opcode, parcount, parmode;
     char name[6];
-} OpCode;
+} Instr;
 
-static const OpCode lang[7][3] = {
+static Instr lang[26][6] = {
     {{ 0, 0,  0, "NOP"  }},
     {{10, 2, 22, "MOVR" }, {11, 2,  12, "MOVV"}},
     {{20, 2, 22, "ADD"  }, {21, 2,  22, "SUB" }},
@@ -46,13 +49,14 @@ static const OpCode lang[7][3] = {
     {{40, 1,  3, "JP"   }, {41, 3, 322, "JL"  }, {42, 1, 3, "CALL"}},
     {{50, 0,  0, "RET"  }},
     {{60, 1,  2, "PRINT"}}
+    // Define lang[25][5]={255,0,0,"HALT"} at setup
 };
 
 typedef struct {
-    int *mem, *stk, *reg;
-    size_t pc, sp, tick, tock;
-    size_t memsize, progsize, stksize, regsize;
-    int64_t result;
+    int64_t *reg, *stack, *mem;
+    size_t regcount, stacksize, memsize, progsize;
+    size_t sp, pc, tick, tock;
+    int64_t retval;
     bool halted, silent;
 } VirtualMachine;
 
@@ -72,7 +76,7 @@ static void * del_vm(VirtualMachine ** vm)
 {
     if (vm && *vm) {
         free((*vm)->mem);
-        free((*vm)->stk);
+        free((*vm)->stack);
         free((*vm)->reg);
         free(*vm);
         *vm = NULL;
@@ -85,20 +89,20 @@ static VirtualMachine * new_vm(const char * const csvline)
     VirtualMachine *vm = calloc(1, sizeof *vm);  // also resets all vars
     if (!vm)
         return NULL;
+    vm->reg = calloc(REGISTERS, sizeof *(vm->reg));
+    vm->stack = calloc(STACKSIZE, sizeof *(vm->stack));
     size_t progsize = fieldcount(csvline);
     size_t memsize = progsize ? progsize : MEMORYSIZE;
     vm->mem = calloc(memsize, sizeof *(vm->mem));
-    vm->stk = calloc(STACKSIZE, sizeof *(vm->stk));
-    vm->reg = calloc(REGISTERS, sizeof *(vm->reg));
-    if (!vm->mem || !vm->stk || !vm->reg)
+    if (!vm->mem || !vm->stack || !vm->reg)
         return del_vm(&vm);
+    vm->regcount = REGISTERS;
+    vm->stacksize = STACKSIZE;
     vm->memsize = memsize;
-    vm->stksize = STACKSIZE;
-    vm->regsize = REGISTERS;
     const char *c = csvline;
     while (*c != '\0' && vm->progsize < vm->memsize) {
-        int val;
-        if (sscanf(c, "%d", &val) != 1)
+        int64_t val;
+        if (sscanf(c, "%lld", &val) != 1)
             return del_vm(&vm);
         vm->mem[vm->progsize++] = val;
         while (*c != '\0' && *c != ',')
@@ -123,9 +127,16 @@ static int tick(VirtualMachine * vm)
     }
     // Get instruction
     vm->tick++;
-    int opcode = vm->mem[vm->pc++];
+    int64_t opcode = vm->mem[vm->pc++];
+    if (opcode < 0 || opcode > 255)
+        return ERR_INVALID_OPCODE;
+    ldiv_t op = ldiv(opcode, 10);
+    Instr *in = &lang[op.quot][op.rem];
+    if (in->opcode != opcode)
+        return ERR_INVALID_OPCODE;
     // Get parameters
-    int par[3] = {0}, parcount = 0, i = 0;
+    int64_t par[3] = {0};
+    size_t parcount = 0, i = 0;
     switch (opcode) {
         case  41: // JL   (3 params)
             parcount = 3;
@@ -177,18 +188,18 @@ static int tick(VirtualMachine * vm)
             vm->reg[par[0]] -= vm->reg[par[1]];
             break;
         case 30: // PUSH Rsrc
-            if (vm->sp >= vm->stksize) {
+            if (vm->sp >= vm->stacksize) {
                 vm->halted = true;
                 return ERR_STACK_FULL;
             }
-            vm->stk[vm->sp++] = vm->reg[par[0]];
+            vm->stack[vm->sp++] = vm->reg[par[0]];
             break;
         case 31: // POP Rdst
             if (vm->sp == 0) {
                 vm->halted = true;
                 return ERR_STACK_EMPTY;
             }
-            vm->reg[par[0]] = vm->stk[--vm->sp];
+            vm->reg[par[0]] = vm->stack[--vm->sp];
             break;
         case 40: // JP addr
             if (par[0] < 0 || (size_t)par[0] >= vm->progsize) {
@@ -207,7 +218,7 @@ static int tick(VirtualMachine * vm)
             }
             break;
         case 42: // CALL addr (+ push ret-addr)
-            if (vm->sp >= vm->stksize) {
+            if (vm->sp >= vm->stacksize) {
                 vm->halted = true;
                 return -9;
             }
@@ -215,7 +226,7 @@ static int tick(VirtualMachine * vm)
                 vm->halted = true;
                 return -10;
             }
-            vm->stk[vm->sp++] = (int)vm->pc;
+            vm->stack[vm->sp++] = (int)vm->pc;
             vm->pc = (size_t)par[0];
             break;
         case 50: // RET (+ pop ret-addr)
@@ -223,7 +234,7 @@ static int tick(VirtualMachine * vm)
                 vm->halted = true;
                 return ERR_STACK_EMPTY;
             }
-            int addr = vm->stk[--vm->sp];
+            int64_t addr = vm->stack[--vm->sp];
             if (addr < 0 || (size_t)addr >= vm->progsize) {
                 vm->halted = true;
                 return -12;
@@ -231,16 +242,16 @@ static int tick(VirtualMachine * vm)
             vm->pc = (size_t)addr;
             break;
         case 60: // PRINT Rsrc
-            vm->result = vm->reg[par[0]];
+            vm->retval = vm->reg[par[0]];
             if (!vm->silent)
-                printf("%d\n", vm->result);
+                printf("%lld\n", vm->retval);
             break;
         case 255: // HALT
             vm->halted = true;
             break;
         default: // invalid opcode
             vm->halted = true;
-            return -3;
+            return ERR_INVALID_OPCODE;
     }
     vm->tock++;
     return 0;
@@ -258,8 +269,14 @@ static int run(VirtualMachine * vm)
 
 int main(void)
 {
+    // Setup
+    lang[25][5] = (Instr){255, 0, 0, "HALT"};
+    // Init
     VirtualMachine *vm = new_vm(input);
+    // Run
     int exitcode = run(vm);  // prints first 10 Fibonacci numbers
+    // Clean
     del_vm(&vm);
+    // Exit
     return exitcode;
 }
