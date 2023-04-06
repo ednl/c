@@ -9,27 +9,26 @@
 #include <stdint.h>   // int64_t
 #include <limits.h>   // LONG_WIDTH
 
-#define MEMORYSIZE 64  // actually used by puzzle: 50
-#define STACKSIZE  16  // actually used by puzzle: 2
-#define REGISTERS   4  // given by puzzle
+#define MEMORYSIZE  64  // actually used by puzzle: 50
+#define STACKSIZE   16  // actually used by puzzle: 2
+#define REGISTERS    4  // given by puzzle
+#define MAXPARCOUNT  3  // instructions have 0 to 3 parameters
 
 // Opcode parameter addressing modes
-#define IMM 1
-#define REG 2
-#define MEM 3
+// #define PAR_IMMEDIATE 1  // unused
+#define PAR_REGISTER  2  // parameter is a register index
+#define PAR_ABSOLUTE  3  // parameter is an absolute memory address
+// #define PAR_RELATIVE  4  // unused
 
-#define ERR_NULLPOINTER     -1
-#define ERR_PC_OVERFLOW     -2
-#define ERR_INVALID_OPCODE  -3
-#define ERR_PARAMETER_COUNT -4
-#define ERR_STACK_FULL      -5
-#define ERR_STACK_EMPTY     -6
-// #define ERR_   -7
-// #define ERR_   -8
-// #define ERR_   -9
-// #define ERR_  -10
-// #define ERR_  -11
-// #define ERR_  -12
+#define ERR_OK                0
+#define ERR_NULLPOINTER       1
+#define ERR_PC_UNDERFLOW      2
+#define ERR_PC_OVERFLOW       3
+#define ERR_INVALID_OPCODE    4
+#define ERR_STACK_FULL        5
+#define ERR_STACK_EMPTY       6
+#define ERR_REGISTER_INDEX    7
+#define ERR_INTERNAL_PARCOUNT 8
 
 // Program code
 static const char *input = "11,0,10,42,6,255,30,0,11,0,0,11,1,1,11,3,1,60,1,10,2,0,20,2,1,60,2,10,0,1,10,1,2,11,2,1,20,3,2,31,2,30,2,41,3,2,19,31,0,50";
@@ -37,34 +36,33 @@ static const char *input = "11,0,10,42,6,255,30,0,11,0,0,11,1,1,11,3,1,60,1,10,2
 // Instruction
 // parmode: units = addr mode of 1st par, tens = addr mode of 2nd par, etc.
 typedef struct {
-    int64_t opcode, parcount, parmode;
-    char name[6];
+    int opcode, parmode;
+    char name[8];
 } Instr;
 
 static Instr lang[26][6] = {
-    {{ 0, 0,  0, "NOP"  }},
-    {{10, 2, 22, "MOVR" }, {11, 2,  12, "MOVV"}},
-    {{20, 2, 22, "ADD"  }, {21, 2,  22, "SUB" }},
-    {{30, 1,  2, "PUSH" }, {31, 1,   2, "POP" }},
-    {{40, 1,  3, "JP"   }, {41, 3, 322, "JL"  }, {42, 1, 3, "CALL"}},
-    {{50, 0,  0, "RET"  }},
-    {{60, 1,  2, "PRINT"}}
-    // Define lang[25][5]={255,0,0,"HALT"} at setup
+    {{ 0,  0, "NOP"  }},
+    {{10, 22, "MOVR" }, {11,  12, "MOVV"}},
+    {{20, 22, "ADD"  }, {21,  22, "SUB" }},
+    {{30,  2, "PUSH" }, {31,   2, "POP" }},
+    {{40,  3, "JP"   }, {41, 322, "JL"  }, {42, 3, "CALL"}},
+    {{50,  0, "RET"  }},
+    {{60,  2, "PRINT"}}
+    // Define lang[25][5]={255,0,"HALT"} at setup
 };
 
 typedef struct {
-    int64_t *reg, *stack, *mem;
-    size_t regcount, stacksize, memsize, progsize;
-    size_t sp, pc, tick, tock;
-    int64_t retval;
+    int *mem, *stack, *reg;
+    int memsize, progsize, stacksize, regcount;
+    int pc, sp, tick, tock, retval;
     bool halted, silent;
 } VirtualMachine;
 
-static size_t fieldcount(const char * const csvline)
+static int fieldcount(const char * const csvline)
 {
     if (!csvline || *csvline == '\0')
         return 0;
-    size_t fields = 1;
+    int fields = 1;
     const char *c = csvline;
     while (*c)
         if (*c++ == ',')
@@ -89,20 +87,20 @@ static VirtualMachine * new_vm(const char * const csvline)
     VirtualMachine *vm = calloc(1, sizeof *vm);  // also resets all vars
     if (!vm)
         return NULL;
-    vm->reg = calloc(REGISTERS, sizeof *(vm->reg));
+    int progsize = fieldcount(csvline);
+    int memsize = progsize ? progsize : MEMORYSIZE;
+    vm->mem = calloc((size_t)memsize, sizeof *(vm->mem));
     vm->stack = calloc(STACKSIZE, sizeof *(vm->stack));
-    size_t progsize = fieldcount(csvline);
-    size_t memsize = progsize ? progsize : MEMORYSIZE;
-    vm->mem = calloc(memsize, sizeof *(vm->mem));
+    vm->reg = calloc(REGISTERS, sizeof *(vm->reg));
     if (!vm->mem || !vm->stack || !vm->reg)
         return del_vm(&vm);
-    vm->regcount = REGISTERS;
-    vm->stacksize = STACKSIZE;
     vm->memsize = memsize;
+    vm->stacksize = STACKSIZE;
+    vm->regcount = REGISTERS;
     const char *c = csvline;
     while (*c != '\0' && vm->progsize < vm->memsize) {
-        int64_t val;
-        if (sscanf(c, "%lld", &val) != 1)
+        int val;
+        if (sscanf(c, "%d", &val) != 1)
             return del_vm(&vm);
         vm->mem[vm->progsize++] = val;
         while (*c != '\0' && *c != ',')
@@ -121,58 +119,51 @@ static int tick(VirtualMachine * vm)
         return ERR_NULLPOINTER;
     if (vm->halted)
         return 0;
-    if (vm->pc >= vm->progsize) {
+    if (vm->pc < 0 || vm->pc >= vm->progsize) {
         vm->halted = true;
-        return ERR_PC_OVERFLOW;
+        return vm->pc < 0 ? ERR_PC_UNDERFLOW : ERR_PC_OVERFLOW;
     }
-    // Get instruction
+    // Start clock cycle
     vm->tick++;
-    int64_t opcode = vm->mem[vm->pc++];
+    // Get instruction
+    int opcode = vm->mem[vm->pc++];
     if (opcode < 0 || opcode > 255)
         return ERR_INVALID_OPCODE;
-    ldiv_t op = ldiv(opcode, 10);
-    Instr *in = &lang[op.quot][op.rem];
-    if (in->opcode != opcode)
+    div_t op = div(opcode, 10);
+    Instr *instr = &lang[op.quot][op.rem];
+    if (instr->opcode != opcode)
         return ERR_INVALID_OPCODE;
     // Get parameters
-    int64_t par[3] = {0};
-    size_t parcount = 0, i = 0;
-    switch (opcode) {
-        case  41: // JL   (3 params)
-            parcount = 3;
-            if (vm->pc < vm->progsize)
-                par[i++] = vm->mem[vm->pc++];
-        case  10: // MOVR (2 params)
-        case  11: // MOVV
-        case  20: // ADD
-        case  21: // SUB
-            if (!parcount)
-                parcount = 2;
-            if (vm->pc < vm->progsize)
-                par[i++] = vm->mem[vm->pc++];
-        case  30: // PUSH (1 param)
-        case  31: // POP
-        case  40: // JP
-        case  42: // CALL
-        case  60: // PRINT
-            if (!parcount)
-                parcount = 1;
-            if (vm->pc < vm->progsize)
-                par[i++] = vm->mem[vm->pc++];
-        case   0: // NOP  (0 params)
-        case  50: // RET
-        case 255: // HALT
-            break;
-        default:  // invalid opcode
+    int i = 0, par[MAXPARCOUNT] = {0};
+    int mode = instr->parmode;
+    while (mode) {
+        if (i >= MAXPARCOUNT) {
             vm->halted = true;
-            return ERR_INVALID_OPCODE;
+            return ERR_INTERNAL_PARCOUNT;
+        }
+        if (vm->pc >= vm->progsize) {
+            vm->halted = true;
+            return ERR_PC_OVERFLOW;
+        }
+        int k = vm->mem[vm->pc++];
+        switch (mode % 10) {
+            case PAR_REGISTER:
+                if (k < 0 || k >= vm->regcount) {
+                    vm->halted = true;
+                    return ERR_REGISTER_INDEX;
+                }
+                break;
+            case PAR_ABSOLUTE:
+                if (k < 0 || k >= vm->progsize) {
+                    vm->halted = true;
+                    return k < 0 ? ERR_PC_UNDERFLOW : ERR_PC_OVERFLOW;
+                }
+                break;
+        }
+        par[i++] = k;
+        mode /= 10;
     }
-    // Correct number of parameters available?
-    if (i != parcount) {
-        vm->halted = true;
-        return ERR_PARAMETER_COUNT;
-    }
-    // TODO: validate parameters according to addressing mode
+
     // Execute instruction
     switch (opcode) {
         case 10: // MOVR Rdst Rsrc
@@ -202,49 +193,49 @@ static int tick(VirtualMachine * vm)
             vm->reg[par[0]] = vm->stack[--vm->sp];
             break;
         case 40: // JP addr
-            if (par[0] < 0 || (size_t)par[0] >= vm->progsize) {
+            if (par[0] < 0 || par[0] >= vm->progsize) {
                 vm->halted = true;
-                return -7;
+                return par[0] < 0 ? ERR_PC_UNDERFLOW : ERR_PC_OVERFLOW;
             }
-            vm->pc = (size_t)par[0];
+            vm->pc = par[0];
             break;
         case 41: // JL Rx Ry addr
             if (vm->reg[par[0]] < vm->reg[par[1]]) {
-                if (par[2] < 0 || (size_t)par[2] >= vm->progsize) {
+                if (par[2] < 0 || par[2] >= vm->progsize) {
                     vm->halted = true;
-                    return -8;
+                    return par[2] < 0 ? ERR_PC_UNDERFLOW : ERR_PC_OVERFLOW;
                 }
-                vm->pc = (size_t)par[2];
+                vm->pc = par[2];
             }
             break;
         case 42: // CALL addr (+ push ret-addr)
             if (vm->sp >= vm->stacksize) {
                 vm->halted = true;
-                return -9;
+                return ERR_STACK_FULL;
             }
-            if (par[0] < 0 || (size_t)par[0] >= vm->progsize) {
+            if (par[0] < 0 || par[0] >= vm->progsize) {
                 vm->halted = true;
-                return -10;
+                return par[0] < 0 ? ERR_PC_UNDERFLOW : ERR_PC_OVERFLOW;
             }
-            vm->stack[vm->sp++] = (int)vm->pc;
-            vm->pc = (size_t)par[0];
+            vm->stack[vm->sp++] = vm->pc;
+            vm->pc = par[0];
             break;
         case 50: // RET (+ pop ret-addr)
             if (vm->sp == 0) {
                 vm->halted = true;
                 return ERR_STACK_EMPTY;
             }
-            int64_t addr = vm->stack[--vm->sp];
-            if (addr < 0 || (size_t)addr >= vm->progsize) {
+            int addr = vm->stack[--vm->sp];
+            if (addr < 0 || addr >= vm->progsize) {
                 vm->halted = true;
-                return -12;
+                return addr < 0 ? ERR_PC_UNDERFLOW : ERR_PC_OVERFLOW;
             }
-            vm->pc = (size_t)addr;
+            vm->pc = addr;
             break;
         case 60: // PRINT Rsrc
             vm->retval = vm->reg[par[0]];
             if (!vm->silent)
-                printf("%lld\n", vm->retval);
+                printf("%d\n", vm->retval);
             break;
         case 255: // HALT
             vm->halted = true;
@@ -253,8 +244,9 @@ static int tick(VirtualMachine * vm)
             vm->halted = true;
             return ERR_INVALID_OPCODE;
     }
+    // End clock cycle
     vm->tock++;
-    return 0;
+    return ERR_OK;
 }
 
 static int run(VirtualMachine * vm)
@@ -270,7 +262,7 @@ static int run(VirtualMachine * vm)
 int main(void)
 {
     // Setup
-    lang[25][5] = (Instr){255, 0, 0, "HALT"};
+    lang[25][5] = (Instr){255, 0, "HALT"};
     // Init
     VirtualMachine *vm = new_vm(input);
     // Run
