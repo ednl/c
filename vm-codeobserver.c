@@ -4,11 +4,10 @@
 // Solution by E. Dronkert https://github.com/ednl
 
 #include <stdio.h>    // printf, sscanf
-#include <stdlib.h>   // malloc, free
+#include <stdlib.h>   // calloc, free
 #include <stdbool.h>  // bool
-#include <stdint.h>   // int64_t
-#include <limits.h>   // LONG_WIDTH
 
+// Default VM setup parameters
 #define MEMORYSIZE  64  // actually used by puzzle: 50
 #define STACKSIZE   16  // actually used by puzzle: 2
 #define REGISTERS    4  // given by puzzle
@@ -24,6 +23,7 @@
 #define PAR_ABSOLUTE  3  // parameter is an absolute memory address
 // #define PAR_RELATIVE  4  // unused
 
+// Error codes
 #define ERR_OK                0
 #define ERR_NULLPOINTER       1
 #define ERR_INVALID_OPCODE    2
