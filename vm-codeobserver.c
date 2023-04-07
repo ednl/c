@@ -62,7 +62,7 @@ static Instr assembly[26][6] = {
 typedef struct {
     int *mem, *stack, *reg;
     int memsize, progsize, stacksize, regcount;
-    int pc, sp, tick, tock, retval;
+    int pc, sp, tick, tock, retval;  // program counter, stack pointer, clock, result
     bool halted, silent;
 } VirtualMachine;
 
@@ -141,8 +141,8 @@ static int tick(VirtualMachine * vm)
         vm->halted = true;
         return ERR_INVALID_OPCODE;
     }
-    div_t op = div(opcode, 10);
-    Instr *instr = &assembly[op.quot][op.rem];
+    div_t qr = div(opcode, 10);
+    Instr *instr = &assembly[qr.quot][qr.rem];
     if (instr->opcode != opcode) {
         vm->halted = true;
         return ERR_INVALID_OPCODE;
@@ -170,28 +170,29 @@ static int tick(VirtualMachine * vm)
             vm->halted = true;
             return ERR_PC_OVERFLOW;
         }
-        int k = vm->mem[vm->pc++];
-        switch (mode % 10) {
+        par[i] = vm->mem[vm->pc++];
+        qr = div(mode, 10);  // get current parameter mode from units
+        mode = qr.quot;      // reduce mode to tens
+        switch (qr.rem) {
             case PAR_IMMEDIATE:  // nothing to check for immediate value
                 break;
             case PAR_REGISTER:  // check if valid register index
-                if (k < 0 || k >= vm->regcount) {
+                if (par[i] < 0 || par[i] >= vm->regcount) {
                     vm->halted = true;
                     return ERR_REGISTER_INDEX;
                 }
                 break;
             case PAR_ABSOLUTE:  // check if valid program address (language only uses addr to jump to, not to store/load)
-                if (k < 0 || k >= vm->progsize) {
+                if (par[i] < 0 || par[i] >= vm->progsize) {
                     vm->halted = true;
-                    return k < 0 ? ERR_PC_UNDERFLOW : ERR_PC_OVERFLOW;
+                    return par[i] < 0 ? ERR_PC_UNDERFLOW : ERR_PC_OVERFLOW;
                 }
                 break;
             default:
                 vm->halted = true;
                 return ERR_INTERNAL_PARMODE;  // mode must be IMM/REG/ABS
         }
-        par[i++] = k;
-        mode /= 10;
+        ++i;
     }
 
     // Execute instruction
