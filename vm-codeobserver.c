@@ -46,15 +46,17 @@ typedef struct _Instr {
     char name[8];
 } Instr;
 
-static Instr lang[26][6] = {
-    {0},
+// Language definition in rows 0-25 and cols 0-5 for each opcode = 10*row + col
+static Instr assembly[26][6] = {
+    {0},  // no opcodes on row 0
     {{10, 22,  0, "MOVR" }, {11,  12,  0, "MOVV"}},
     {{20, 22,  0, "ADD"  }, {21,  22,  0, "SUB" }},
     {{30,  2,  1, "PUSH" }, {31,   2, -1, "POP" }},
     {{40,  3,  0, "JP"   }, {41, 322,  0, "JL"  }, {42, 3, 1, "CALL"}},
     {{50,  0, -1, "RET"  }},
-    {{60,  2,  0, "PRINT"}}
-    // Define lang[25][5]={255,0,0,"HALT"} at setup
+    {{60,  2,  0, "PRINT"}},
+    {0},{0},{0},{0},{0},{0},{0},{0},{0},{0},{0},{0},{0},{0},{0},{0},{0},{0},  // no opcodes on rows 7-24
+    {{255,0,0,"HALT"}}
 };
 
 typedef struct {
@@ -140,7 +142,7 @@ static int tick(VirtualMachine * vm)
         return ERR_INVALID_OPCODE;
     }
     div_t op = div(opcode, 10);
-    Instr *instr = &lang[op.quot][op.rem];
+    Instr *instr = &assembly[op.quot][op.rem];
     if (instr->opcode != opcode) {
         vm->halted = true;
         return ERR_INVALID_OPCODE;
@@ -236,9 +238,8 @@ static int run(VirtualMachine * vm)
 
 int main(void)
 {
-    lang[25][5] = (Instr){255, 0, 0, "HALT"}; // setup
-    VirtualMachine *vm = new_vm(input);       // init
-    int exitcode = run(vm);                   // print first 10 Fibonacci numbers
-    del_vm(&vm);                              // cleanup
-    return exitcode;
+    VirtualMachine *vm = new_vm(input);  // init
+    int exitcode = run(vm);              // print first 10 Fibonacci numbers
+    del_vm(&vm);                         // cleanup
+    return exitcode;                     // pass exitcode
 }
