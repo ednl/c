@@ -12,7 +12,7 @@
 #define MAJORITY ((DICE + 1) >> 1)
 #define SIDES 6
 #define TRIES 200
-#define GAMES (100 * 1000 * 1000)
+#define GAMES (1000 * 1000)
 #define PERCT (GAMES / 100)
 
 // Histograms
@@ -21,15 +21,16 @@ static int cast[SIDES] = {0};
 static int hist[TRIES] = {0};
 
 // One unbiased die roll [0..SIDES - 1]
-// Ref. https://en.cppreference.com/w/c/numeric/random/rand
-static int roll(void)
+// Ref. man random / man arc4random
+static uint32_t roll(void)
 {
-    return random() / ((RAND_MAX + 1UL) / SIDES);
+    // return random() / ((RAND_MAX + 1UL) / SIDES);
+    return arc4random_uniform(6);
 }
 
 int main(void)
 {
-    srandom(time(NULL));
+    // srandom(time(NULL));
     int games = GAMES;
     while (games--) {
         // What value occurs most, how many times
