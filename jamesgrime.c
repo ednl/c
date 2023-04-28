@@ -10,6 +10,7 @@
 #include <stdio.h>   // printf
 #include <stdlib.h>  // arc4random, malloc, free
 #include <string.h>  // memset
+#include "startstoptimer.h"
 
 #define FACES      6  // each die has X faces
 #define START1     1  // first start with X dice
@@ -26,19 +27,25 @@ static int roll(void)
 
 int main(void)
 {
+    starttimer();
+
     size_t histsize = 100;
     size_t *hist = malloc(histsize * sizeof *hist);
 
-    printf("dice,max,exp\n");
+    printf("games=%u\n", GAMES);
+    printf("dice,maxdice,maxrolls,exprolls\n");
     for (int start = START1; start <= START2; ++start) {
         printf("%d,", start);
         memset(hist, 0, histsize * sizeof *hist);
 
+        int maxdice = 0;
         size_t maxcount = 0;
         for (int i = 0; i < GAMES; ++i) {
             int dice = start;
             size_t count = 0;
             while (dice) {
+                if (dice > maxdice)
+                    maxdice = dice;
                 int sum = 0;
                 for (int j = 0; j < dice; ++j)
                     sum += roll();
@@ -62,14 +69,15 @@ int main(void)
             }
             hist[count]++;
         }
-        printf("%zu,", maxcount);
+        printf("%d,%zu,", maxdice, maxcount);
 
         double expectation = 0;
         for (size_t i = 1; i <= maxcount; ++i)
             expectation += (double)(hist[i] * i) / GAMES;
-        printf("%.3f\n", expectation);
+        printf("%.2f\n", expectation);
     }
 
     free(hist);
+    printf("Time: %.1f s\n", stoptimer_s());
     return 0;
 }
