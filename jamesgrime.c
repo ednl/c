@@ -14,7 +14,7 @@
 
 #define FACES      6  // each die has X faces
 #define START1     1  // first start with X dice
-#define START2    20  // last start with X dice
+#define START2    50  // last start with X dice
 #define GAMES 100000  // simulate X games per start
 
 // One unbiased die roll [0..FACES-1], translate to face value
