@@ -8,23 +8,24 @@
  ******************************************************************/
 
 #include <stdio.h>     // printf
-#include <stdlib.h>    // arc4random, malloc, free
+#include <stdlib.h>    // rand, random, arc4random, realloc, free
 #include <string.h>    // memset
-#include <time.h>      // time for srand
-#include <stdint.h>    // UINT32_MAX
+#include <stdint.h>    // UINT64_MAX
 #include <inttypes.h>  // PRIu64
 #include <stdbool.h>   // bool
 #ifdef __linux__
+#include <time.h>      // time for srand
 #include <bsd/stdlib.h>      // arc4random on Linux, link option: -lbsd
 #endif
 #include "startstoptimer.h"  // if used, compile with extra source file: startstoptimer.c
 
 // Simulation parameters, can be changed via command line arguments
-#define RNG         1  // use which RNG: 0=rand, 1=random, 2=arc4random, 3=arc4random_uniform
-#define FACES       6  // each die has X faces
-#define START1      1  // first start with X dice
-#define START2     20  // last start with X dice
-#define GAMES 1000000  // simulate X games per start
+#define RNG          1  // use which RNG: 0=rand, 1=random, 2=arc4random, 3=arc4random_uniform
+#define FACES        6  // each die has X faces
+#define START1       1  // first start with X dice
+#define START2      20  // last start with X dice
+#define GAMES  1000000  // simulate X games per start
+#define SHOWPROGRESS 1  // progress bar, of sorts (1=yes, 0=no)
 
 // Dividing factors for unbiased dice
 // Ref.: https://en.cppreference.com/w/c/numeric/random/rand
@@ -158,8 +159,10 @@ int main(int argc, char * argv[])
 
         uint64_t maxdice = 0, maxrolls = 0, progress = games / 50;
         for (uint64_t i = 0; i < games; ++i) {  // play X games until completion
+#if defined(SHOWPROGRESS) && SHOWPROGRESS
             if (!(i % progress))
                 fprintf(stderr, ".");
+#endif
             uint64_t dice = start, rolls = 0;
             while (dice) {  // stop when no more dice
                 if (dice > maxdice)
