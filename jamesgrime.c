@@ -7,55 +7,149 @@
  * By E. Dronkert https://github.com/ednl
  ******************************************************************/
 
-#include <stdio.h>   // printf
-#include <stdlib.h>  // arc4random, malloc, free
-#include <string.h>  // memset
+#include <stdio.h>    // printf
+#include <stdlib.h>   // arc4random, malloc, free
+#include <string.h>   // memset
+#include <time.h>     // time for srand
+#include <stdint.h>   // UINT32_MAX
+#include <stdbool.h>  // bool
 #include "startstoptimer.h"
 
-#define FACES      6  // each die has X faces
-#define START1     1  // first start with X dice
-#define START2    50  // last start with X dice
-#define GAMES 100000  // simulate X games per start
+#define RNG         1  // use which RNG: 0=rand, 1=random, 2=arc4random, 3=arc4random_uniform
+#define FACES       6  // each die has X faces
+#define START1      1  // first start with X dice
+#define START2     20  // last start with X dice
+#define GAMES 1000000  // simulate X games per start
 
-// One unbiased die roll [0..FACES-1], translate to face value
-// Ref. man arc4random
-static int roll(void)
+#define RDIVU   ((RAND_MAX + 1U ) / FACES)
+#define RDIVUL  ((RAND_MAX + 1UL) / FACES)
+#define RDIVULL ((1ULL << 32) / FACES)
+
+static const uint64_t facevalue[FACES + 1] = {0, 0, 0, 0, 2, 3, 0};
+
+static bool str2ui64(const char * str, uint64_t * val)
 {
-    static const int face[FACES] = {0, 0, 0, 0, 2, 3};
-    return face[arc4random_uniform(FACES)];
+    long long a = atoll(str);
+    if (a >= 0 && a <= UINT32_MAX) {
+        *val = (uint64_t)a;
+        return true;
+    }
+    return false;
 }
 
-int main(void)
+static uint64_t roll_bad(void)
 {
+    unsigned int x = FACES;
+    while (x == FACES)
+        x = (unsigned int)rand() / RDIVU;
+    return x;
+}
+
+static uint64_t roll_ok(void)
+{
+    unsigned long x = FACES;
+    while (x == FACES)
+        x = (unsigned long)random() / RDIVUL;
+    return x;
+}
+
+static uint64_t roll_good(void)
+{
+    uint64_t x = FACES;
+    while (x == FACES)
+        x = (uint64_t)arc4random() / RDIVULL;
+    return x;
+}
+
+static uint64_t roll_excellent(void)
+{
+    return arc4random_uniform(FACES);
+}
+
+int main(int argc, char * argv[])
+{
+    uint64_t (*roll)(void) = NULL;
+    uint64_t rng = RNG, start1 = START1, start2 = START2, games = GAMES;
+    uint64_t histsize = 0;
+    uint64_t *hist = NULL;
+
     starttimer();
 
-    size_t histsize = 100;
-    size_t *hist = malloc(histsize * sizeof *hist);
+    int argi = 1;
+    while (argi < argc) {
+        uint64_t a = 0;
+        if (str2ui64(argv[argi], &a)) {
+            if (argi == 1 && a < 4) {
+                rng = a;
+            } else if ((argi == 1 || argi == 2) && a > 0 && a <= 100) {
+                start1 = start2 = a;
+            } else if ((argi == 1 || argi == 2 || argi == 3) && a > start1 && a <= 100)
+                start2 = a;
+            else if (a > 100)
+                games = a;
+        }
+        ++argi;
+    }
 
-    printf("games=%u\n", GAMES);
+    printf("rng engine      : ");
+    switch (rng) {
+        case 0:
+            printf("rand");
+            roll = roll_bad;
+            // srand((unsigned int)time(NULL));
+            sranddev();
+            break;
+        case 1:
+            printf("random");
+            roll = roll_ok;
+            // srandom((unsigned int)time(NULL));
+            srandomdev();
+            break;
+        case 2:
+            printf("arc4random");
+            roll = roll_good;
+            break;
+        case 3:
+            printf("arc4random_uniform");
+            roll = roll_excellent;
+            break;
+        default:
+            fprintf(stderr, "Internal error: invalid RNG\n");
+            return 1;
+    }
+    printf("()\n");
+
+    if (start1 == start2) {
+        printf("start with dice : %llu\n", start1);
+    } else {
+        printf("start dice from : %llu\n", start1);
+        printf("start dice to   : %llu\n", start2);
+    }
+    printf("games per start : %llu\n\n", games);
+
     printf("dice,maxdice,maxrolls,exprolls\n");
-    for (int start = START1; start <= START2; ++start) {
-        printf("%d,", start);
+    for (uint64_t start = start1; start <= start2; ++start) {
+        printf("%llu,", start);
         memset(hist, 0, histsize * sizeof *hist);
 
-        int maxdice = 0;
-        size_t maxcount = 0;
-        for (int i = 0; i < GAMES; ++i) {
-            int dice = start;
-            size_t count = 0;
+        uint64_t maxdice = 0, maxrolls = 0, progress = games / 50;
+        for (uint64_t i = 0; i < games; ++i) {
+            if (!(i % progress))
+                fprintf(stderr, ".");
+            uint64_t dice = start, rolls = 0;
             while (dice) {
                 if (dice > maxdice)
                     maxdice = dice;
-                int sum = 0;
-                for (int j = 0; j < dice; ++j)
-                    sum += roll();
-                ++count;
+                uint64_t sum = 0;
+                while (dice--)
+                    sum += facevalue[(*roll)()];
+                ++rolls;
                 dice = sum;
             }
-            if (count > maxcount)
-                maxcount = count;
-            if (count >= histsize) {
-                size_t newsize = count + 100;
+            if (rolls > maxrolls)
+                maxrolls = rolls;
+            if (rolls >= histsize) {
+                uint64_t newsize = rolls + 100;
                 void *p = realloc(hist, newsize * sizeof *hist);
                 if (p) {
                     hist = p;
@@ -67,17 +161,17 @@ int main(void)
                     exit(1);
                 }
             }
-            hist[count]++;
+            hist[rolls]++;
         }
-        printf("%d,%zu,", maxdice, maxcount);
+        printf("%llu,%llu,", maxdice, maxrolls);
 
         double expectation = 0;
-        for (size_t i = 1; i <= maxcount; ++i)
-            expectation += (double)(hist[i] * i) / GAMES;
-        printf("%.2f\n", expectation);
+        for (uint64_t i = 1; i <= maxrolls; ++i)
+            expectation += (double)(hist[i] * i) / games;
+        printf("%.3f\n", expectation);
     }
 
     free(hist);
-    printf("Time: %.1f s\n", stoptimer_s());
+    printf("\nTime: %.1f s\n", stoptimer_s());
     return 0;
 }
