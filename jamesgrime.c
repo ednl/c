@@ -7,13 +7,17 @@
  * By E. Dronkert https://github.com/ednl
  ******************************************************************/
 
-#include <stdio.h>    // printf
-#include <stdlib.h>   // arc4random, malloc, free
-#include <string.h>   // memset
-#include <time.h>     // time for srand
-#include <stdint.h>   // UINT32_MAX
-#include <stdbool.h>  // bool
-#include "startstoptimer.h"
+#include <stdio.h>     // printf
+#include <stdlib.h>    // arc4random, malloc, free
+#include <string.h>    // memset
+#include <time.h>      // time for srand
+#include <stdint.h>    // UINT32_MAX
+#include <inttypes.h>  // PRIu64
+#include <stdbool.h>   // bool
+#ifdef __linux__
+#include <bsd/stdlib.h>      // arc4random, include link option: -lbsd
+#endif
+#include "startstoptimer.h"  // include source file when compiling: startstoptimer.c
 
 #define RNG         1  // use which RNG: 0=rand, 1=random, 2=arc4random, 3=arc4random_uniform
 #define FACES       6  // each die has X faces
@@ -96,14 +100,20 @@ int main(int argc, char * argv[])
         case 0:
             printf("rand");
             roll = roll_bad;
-            // srand((unsigned int)time(NULL));
+#ifdef __APPLE__
             sranddev();
+#else
+            srand((unsigned int)time(NULL));
+#endif
             break;
         case 1:
             printf("random");
             roll = roll_ok;
-            // srandom((unsigned int)time(NULL));
+#ifdef __APPLE__
             srandomdev();
+#else
+            srandom((unsigned int)time(NULL));
+#endif
             break;
         case 2:
             printf("arc4random");
@@ -120,16 +130,16 @@ int main(int argc, char * argv[])
     printf("()\n");
 
     if (start1 == start2) {
-        printf("start with dice : %llu\n", start1);
+        printf("start with dice : %"PRIu64"\n", start1);
     } else {
-        printf("start dice from : %llu\n", start1);
-        printf("start dice to   : %llu\n", start2);
+        printf("start dice from : %"PRIu64"\n", start1);
+        printf("start dice to   : %"PRIu64"\n", start2);
     }
-    printf("games per start : %llu\n\n", games);
+    printf("games per start : %"PRIu64"\n\n", games);
 
     printf("dice,maxdice,maxrolls,exprolls\n");
     for (uint64_t start = start1; start <= start2; ++start) {
-        printf("%llu,", start);
+        printf("%"PRIu64",", start);
         memset(hist, 0, histsize * sizeof *hist);
 
         uint64_t maxdice = 0, maxrolls = 0, progress = games / 50;
@@ -163,7 +173,7 @@ int main(int argc, char * argv[])
             }
             hist[rolls]++;
         }
-        printf("%llu,%llu,", maxdice, maxrolls);
+        printf("%"PRIu64",%"PRIu64",", maxdice, maxrolls);
 
         double expectation = 0;
         for (uint64_t i = 1; i <= maxrolls; ++i)
