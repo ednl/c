@@ -15,22 +15,27 @@
 #include <inttypes.h>  // PRIu64
 #include <stdbool.h>   // bool
 #ifdef __linux__
-#include <bsd/stdlib.h>      // arc4random, include link option: -lbsd
+#include <bsd/stdlib.h>      // arc4random on Linux, link option: -lbsd
 #endif
-#include "startstoptimer.h"  // include source file when compiling: startstoptimer.c
+#include "startstoptimer.h"  // if used, compile with extra source file: startstoptimer.c
 
+// Simulation parameters, can be changed via command line arguments
 #define RNG         1  // use which RNG: 0=rand, 1=random, 2=arc4random, 3=arc4random_uniform
 #define FACES       6  // each die has X faces
 #define START1      1  // first start with X dice
 #define START2     20  // last start with X dice
 #define GAMES 1000000  // simulate X games per start
 
+// Dividing factors for unbiased dice
+// Ref.: https://en.cppreference.com/w/c/numeric/random/rand
 #define RDIVU   ((RAND_MAX + 1U ) / FACES)
 #define RDIVUL  ((RAND_MAX + 1UL) / FACES)
 #define RDIVULL ((1ULL << 32) / FACES)
 
+// Part of the problem posed by James Grime
 static const uint64_t facevalue[FACES + 1] = {0, 0, 0, 0, 2, 3, 0};
 
+// Parse command line arguments
 static bool str2ui64(const char * str, uint64_t * val)
 {
     long long a = atoll(str);
@@ -41,6 +46,7 @@ static bool str2ui64(const char * str, uint64_t * val)
     return false;
 }
 
+// Unbiased die roll with rand(), supposedly bad
 static uint64_t roll_bad(void)
 {
     unsigned int x = FACES;
@@ -49,6 +55,7 @@ static uint64_t roll_bad(void)
     return x;
 }
 
+// Unbiased die roll with random(), supposedly better
 static uint64_t roll_ok(void)
 {
     unsigned long x = FACES;
@@ -57,6 +64,8 @@ static uint64_t roll_ok(void)
     return x;
 }
 
+// Unbiased die roll with arc4random(), supposedly best
+// (this version with own uniform distribution)
 static uint64_t roll_good(void)
 {
     uint64_t x = FACES;
@@ -65,6 +74,8 @@ static uint64_t roll_good(void)
     return x;
 }
 
+// Unbiased die roll with arc4random(), supposedly best
+// (this version with provided uniform distribution)
 static uint64_t roll_excellent(void)
 {
     return arc4random_uniform(FACES);
@@ -79,6 +90,8 @@ int main(int argc, char * argv[])
 
     starttimer();
 
+    // Parse command line arguments
+    // arg1: RNG [0..3], arg1/2: start1 [1..], arg1/2/3: start2 [start1..], arg if 100+: number of games
     int argi = 1;
     while (argi < argc) {
         uint64_t a = 0;
@@ -95,6 +108,7 @@ int main(int argc, char * argv[])
         ++argi;
     }
 
+    // Show game parameters
     printf("rng engine      : ");
     switch (rng) {
         case 0:
@@ -128,7 +142,6 @@ int main(int argc, char * argv[])
             return 1;
     }
     printf("()\n");
-
     if (start1 == start2) {
         printf("start with dice : %"PRIu64"\n", start1);
     } else {
@@ -137,17 +150,18 @@ int main(int argc, char * argv[])
     }
     printf("games per start : %"PRIu64"\n\n", games);
 
+    // Simulation
     printf("dice,maxdice,maxrolls,exprolls\n");
-    for (uint64_t start = start1; start <= start2; ++start) {
+    for (uint64_t start = start1; start <= start2; ++start) {  // start with X dice
         printf("%"PRIu64",", start);
         memset(hist, 0, histsize * sizeof *hist);
 
         uint64_t maxdice = 0, maxrolls = 0, progress = games / 50;
-        for (uint64_t i = 0; i < games; ++i) {
+        for (uint64_t i = 0; i < games; ++i) {  // play X games until completion
             if (!(i % progress))
                 fprintf(stderr, ".");
             uint64_t dice = start, rolls = 0;
-            while (dice) {
+            while (dice) {  // stop when no more dice
                 if (dice > maxdice)
                     maxdice = dice;
                 uint64_t sum = 0;
@@ -171,10 +185,11 @@ int main(int argc, char * argv[])
                     exit(1);
                 }
             }
-            hist[rolls]++;
+            hist[rolls]++;  // histogram of number of rolls per game
         }
         printf("%"PRIu64",%"PRIu64",", maxdice, maxrolls);
 
+        // Expectation value of the number of rolls for a game with X dice to start
         double expectation = 0;
         for (uint64_t i = 1; i <= maxrolls; ++i)
             expectation += (double)(hist[i] * i) / games;
