@@ -67,6 +67,14 @@ int main(void)
         facesum += facevalue[i];
     long double popmean = (long double)facesum / N;
 
+    // Theoretical population variance
+    long double popvar = 0;
+    for (int j = 0; j < N; ++j) {
+        long double d = (long double)facevalue[j] - popmean;
+        popvar += d * d;
+    }
+    popvar /= N;
+
     uint64_t samples = N;  // number of rolls per RNG
     uint64_t hist[N];  // histogram, reset before use
 
@@ -105,7 +113,7 @@ int main(void)
         n = dots - 15;
         while (n--)
             printf(" ");
-        printf("mean dev variance time(s)\n");
+        printf("mean dev   var dev time(s)\n");
 
         // Test every RNG
         for (unsigned int i = 0; i < funcs; ++i) {
@@ -139,7 +147,7 @@ int main(void)
             }
             variance /= samples;
 
-            printf("%+10.6Lf%9.6Lf%8.3f\n", mean - popmean, variance, t);
+            printf("%+10.6Lf%+10.6Lf%8.3f\n", mean - popmean, variance - popvar, t);
         }
 
         // Enough is enough
