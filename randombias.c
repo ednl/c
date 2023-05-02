@@ -6,9 +6,9 @@
 #include <math.h>        // trunc
 #include <time.h>        // time for srand48/srand/srandom seed
 #ifdef __linux__
-#include <bsd/stdlib.h>  // arc4random (Linux, link option: -lbsd)
+#include <bsd/stdlib.h>  // arc4random (apt install libbsd-dev, link option: -lbsd)
 #endif
-#include "startstoptimer.h"
+#include "startstoptimer.h"  // compile with extra source file: startstoptimer.c
 
 // Number of die faces
 #define N 6
@@ -78,6 +78,17 @@ int main(void)
     uint64_t samples = N;  // number of rolls per RNG
     uint64_t hist[N];  // histogram, reset before use
 
+    // Title
+    printf("-------------------------------------------------------------------------------------------------------\n");
+    printf("Check bias of different random number generators available in the C standard library\n");
+    printf("-------------------------------------------------------------------------------------------------------\n");
+    printf("Face values = %"PRIu64, facevalue[0]);
+    for (int i = 1; i < N; ++i)
+        printf(",%"PRIu64, facevalue[i]);
+    printf(" (%u)\n", N);
+    printf("Mean        = %.8Lf\n", popmean);
+    printf("Variance    = %.8Lf\n\n", popvar);
+
     // Seed RNGs
     srand48((long)time(NULL));
 #ifdef __APPLE__
@@ -110,10 +121,10 @@ int main(void)
             m++;
         }
         printf("Rolls per RNG = %3"PRIu64" %-8s", n, mult[m]);
-        n = dots - 15;
+        n = dots - 12;
         while (n--)
             printf(" ");
-        printf("mean dev   var dev time(s)\n");
+        printf("meandev      vardev    time\n");
 
         // Test every RNG
         for (unsigned int i = 0; i < funcs; ++i) {
@@ -147,7 +158,7 @@ int main(void)
             }
             variance /= samples;
 
-            printf("%+10.6Lf%+10.6Lf%8.3f\n", mean - popmean, variance - popvar, t);
+            printf("%+12.8Lf%+12.8Lf%8.3f\n", mean - popmean, variance - popvar, t);
         }
 
         // Enough is enough
