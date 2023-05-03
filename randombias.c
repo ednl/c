@@ -1,33 +1,53 @@
 #include <stdio.h>
-#include <stdlib.h>      // rand, drand48, random, arc4random (macOS)
+#include <stdlib.h>      // rand, drand48, random, arc4random (macOS), exit
 #include <stdint.h>      // uint64_t
 #include <inttypes.h>    // PRIu64
 #include <string.h>      // memset
 #include <math.h>        // trunc
 #include <time.h>        // time for srand48/srand/srandom seed
+#include <signal.h>      // catch ^C
 #ifdef __linux__
 #include <bsd/stdlib.h>  // arc4random (apt install libbsd-dev, link option: -lbsd)
 #endif
 #include "startstoptimer.h"  // compile with extra source file: startstoptimer.c
 
-// Number of die faces
-#define N 6
-
-// Values on die faces
-static const uint64_t facevalue[N] = {1,2,3,4,5,6};
+// Allowed range for number of die faces
+#define NMIN 2
+#define NDEF 6
+#define NMAX 1024
 
 // Die-roll function signature
 typedef unsigned int (*func_t)(void);
 
+// Number of die faces, can be changed via command line arguments
+// One command line argument: custom number of faces
+// Two or more arguments: custom face values (count = new number of faces)
+static unsigned int N = NDEF;
+
+// Standard or custom face values, histogram per RNG
+// (dynamically allocated, free in interrupt handler or at end of program)
+static int64_t *facevalue = NULL;
+static uint64_t *hist = NULL;
+
+// Interrupt handler for SIGINT (^C)
+static void intHandler(int sig)
+{
+    if (sig == SIGINT) {
+        free(facevalue);
+        free(hist);
+        exit(0);
+    }
+}
+
 // Unbiased die-roll using drand48()
 static unsigned int roll_drand48(void)
 {
-    return (unsigned int)(trunc(drand48() * N));
+    return (unsigned int)(trunc(drand48() * N));  // parentheses to avoid cast warning
 }
 
 // Unbiased die-roll using rand()
 // Ref.: https://en.cppreference.com/w/c/numeric/random/rand
-// In modern implementations of stdlib.c, rand() is probably the same as random()
+// In modern implementations of stdlib.c, rand() is probably the same type of RNG as random()
 static unsigned int roll_rand(void)
 {
     unsigned int x = N;
@@ -48,125 +68,190 @@ static unsigned int roll_random(void)
 // Unbiased die-roll using arc4random()
 static unsigned int roll_arc4random(void)
 {
-    return (unsigned int)arc4random_uniform(N);
+    return arc4random_uniform(N);
 }
 
-int main(void)
+// Snap to range (0 <= r0 <= r1)
+static unsigned int snap(const int r0, const int r1, const int a)
 {
-    const char * const funcname[] = {"drand48", "rand", "random", "arc4random"};
-    const func_t func[] = {roll_drand48, roll_rand, roll_random, roll_arc4random};
-    const size_t funcs = sizeof func / sizeof *func;
-    const char * const mult[] = {"", "thousand", "million", "billion"};
-    const size_t mults = sizeof mult / sizeof *mult;
-    const size_t multmax = mults - 1;  // maximum index into mult[]
-    const uint64_t dots = N < 10 ? 10 * N : N;  // number of progress dots
+    return (unsigned int)(a < r0 ? r0 : (a > r1 ? r1 : a));
+}
 
-    // Theoretical population mean (or: sample mean for samples->infinity)
-    uint64_t facesum = 0;
-    for (int i = 0; i < N; ++i)
+int main(int argc, char * argv[])
+{
+    const char * const rngname[] = {"drand48", "rand", "random", "arc4random"};
+    const func_t rngfunc[] = {roll_drand48, roll_rand, roll_random, roll_arc4random};
+    const size_t rngcount = sizeof rngfunc / sizeof *rngfunc;
+    const char * const multname[] = {"", "thousand", "million", "billion"};
+    const size_t multsize = sizeof multname / sizeof *multname;
+    const size_t multmax = multsize - 1;  // maximum index into multname[]
+    const uint64_t sampleinc = 10;  // every next round, sample size increases by this factor
+
+    // Number of die faces
+    if (argc < 2)
+        N = NDEF;
+    else if (argc == 2)
+        N = snap(NMIN, NMAX, atoi(argv[1]));
+    else
+        N = (unsigned int)(argc - 1);
+
+    // Catch ^C to free memory
+    signal(SIGINT, intHandler);
+
+    // Face values
+    facevalue = malloc(N * sizeof *facevalue);  // may contain negative values via command line arguments
+    if (!facevalue) {
+        fprintf(stderr, "Memory allocation failure.\n");
+        exit(1);
+    }
+    for (unsigned int i = 0; i < N; ++i)
+        facevalue[i] = argc <= 2 ? i + 1 : atoi(argv[i + 1]);  // standard or custom die face values
+
+    // Histogram
+    hist = calloc(rngcount * N, sizeof *hist);  // init to zero
+    if (!hist) {
+        fprintf(stderr, "Memory allocation failure.\n");
+        free(facevalue);
+        exit(2);
+    }
+
+    const uint64_t dots = N * 9;  // number of progress dots
+    uint64_t prevsamples = 0, samples = N;  // number of rolls per RNG, ((sampleinc - 1) * samples) should be divisible by 'dots'
+
+    // Population mean (or: sample mean for sample size->infinity)
+    int64_t facesum = 0;
+    for (unsigned int i = 0; i < N; ++i)
         facesum += facevalue[i];
-    long double popmean = (long double)facesum / N;
+    const long double popmean = (long double)facesum / N;
 
-    // Theoretical population variance
+    // Population variance
     long double popvar = 0;
-    for (int j = 0; j < N; ++j) {
-        long double d = (long double)facevalue[j] - popmean;
+    for (unsigned int i = 0; i < N; ++i) {
+        long double d = (long double)facevalue[i] - popmean;
         popvar += d * d;
     }
     popvar /= N;
 
-    uint64_t samples = N;  // number of rolls per RNG
-    uint64_t hist[N];  // histogram, reset before use
-
     // Title
-    printf("-------------------------------------------------------------------------------------------------------\n");
-    printf("Check bias of different random number generators available in the C standard library\n");
-    printf("-------------------------------------------------------------------------------------------------------\n");
-    printf("Face values = %"PRIu64, facevalue[0]);
-    for (int i = 1; i < N; ++i)
-        printf(",%"PRIu64, facevalue[i]);
-    printf(" (%u)\n", N);
-    printf("Mean        = %.8Lf\n", popmean);
-    printf("Variance    = %.8Lf\n\n", popvar);
+    printf("---------------------------------------------------------------------------------------------------------\n");
+    printf("Check bias of different random number generators in the C standard library on macOS and Linux\n");
+    printf("---------------------------------------------------------------------------------------------------------\n");
+    printf("Face values         = [%"PRId64, facevalue[0]);
+    for (unsigned int i = 1; i < N; ++i)
+        printf(",%"PRId64, facevalue[i]);
+    printf("]\nPopulation mean     = %.8Lf\n", popmean);
+    printf("Population variance = %.8Lf\n\n", popvar);
+    printf("For the whole population (or: infinite sample size), all face values should occur at the same frequency.\n");
+    printf("In other words, the ideal distribution variance and thus standard deviation is zero.\n");
+    printf("Sample sizes are cumulative! The face count (histogram, or frequency distribution) is not reset\n");
+    printf("between increases in sample size. So the characteristics are progressive per RNG.\n\n");
+    printf("Characteristics listed per sample size per RNG are:\n");
+    printf("* meandiff = difference from the population mean\n");
+    printf("* vardiff  = difference from the population variance\n");
+    printf("* stddev   = frequency distribution standard deviation, scaled by sample size\n");
+    printf("* time     = measured time in seconds (single thread)\n\n");
 
     // Seed RNGs
-    srand48((long)time(NULL));
+    time_t tt = time(NULL);
+    srand48((long)tt);
 #ifdef __APPLE__
     sranddev();
     srandomdev();
 #else
-    srand((unsigned int)time(NULL));
-    srandom((unsigned int)time(NULL));
+    srand((int)tt);
+    srandom((int)tt);
 #endif
 
-    // Break out of loop after 'samples' gets to billions
+    // Break out of loop after sample size gets to billions
     while (1) {
         // Progress bar parameters
+        const uint64_t addsamples = samples - prevsamples;  // how many more samples to add this loop
         uint64_t intervals, length;
-        if (samples <= dots) {
+        if (addsamples <= dots) {
             intervals = 1;
-            length = samples;
-        } else if (!(samples % dots)) {
+            length = addsamples;
+        } else if (!(addsamples % dots)) {
             intervals = dots;
-            length = samples / dots;
+            length = addsamples / dots;
         } else {
-            fprintf(stderr, "Internal error: %"PRIu64"/%"PRIu64" has remainder.\n", samples, dots);
-            exit(1);
+            fprintf(stderr, "Internal error: %"PRIu64"/%"PRIu64" has remainder.\n", addsamples, dots);
+            free(facevalue);
+            free(hist);
+            exit(3);
         }
 
         // Header
-        uint64_t n = samples, m = 0;
-        while (n > 1000 && m < multmax) {
+        uint64_t n = samples, order = 0;
+        while (n > 1000 && order < multmax) {
             n /= 1000;
-            m++;
+            order++;
         }
-        printf("Rolls per RNG = %3"PRIu64" %-8s", n, mult[m]);
-        n = dots - 12;
+        printf("Rolls per RNG = %3"PRIu64" %-8s", n, multname[order]);
+        n = dots - 13;
         while (n--)
             printf(" ");
-        printf("meandev      vardev    time\n");
+        printf("meandiff     vardiff  stddev    time\n");
 
         // Test every RNG
-        for (unsigned int i = 0; i < funcs; ++i) {
-            printf("%-11s", funcname[i]);
-            n = dots - intervals;  // alignment when intervals < dots
-            while (n--)
-                printf(".");
+        for (size_t i = 0; i < rngcount; ++i) {
+            const func_t f = rngfunc[i];  // current RNG
+            const size_t ofs = i * N;
+            uint64_t * const base = &hist[ofs];  // base[j] = hist[i][j] (i<rngcount,j<N)
+            printf("%-11s", rngname[i]);
 
-            const func_t f = func[i];  // current RNG
-            memset(hist, 0, sizeof hist);  // clear histogram
             starttimer();
             for (uint64_t j = 0; j < intervals; ++j) {
                 printf(".");  // progress bar
                 fflush(stdout);
                 for (uint64_t k = 0; k < length; ++k)
-                    hist[f()]++;
+                    base[f()]++;
             }
             double t = stoptimer_s();
 
+            // Fix alignment when intervals < dots
+            n = dots - intervals;
+            while (n--)
+                printf(".");
+
             // Sample mean, where sum(hist) = samples
-            uint64_t prodsum = 0;
-            for (int j = 0; j < N; ++j)
-                prodsum += hist[j] * facevalue[j];
+            int64_t prodsum = 0;
+            for (unsigned int j = 0; j < N; ++j)
+                prodsum += facevalue[j] * (int64_t)base[j];
             long double mean = (long double)prodsum / samples;
 
             // Sample variance, where sum(hist) = samples
             long double variance = 0;
-            for (int j = 0; j < N; ++j) {
+            for (unsigned int j = 0; j < N; ++j) {
                 long double d = (long double)facevalue[j] - mean;
-                variance += d * d * hist[j];
+                variance += d * d * base[j];
             }
             variance /= samples;
 
-            printf("%+12.8Lf%+12.8Lf%8.3f\n", mean - popmean, variance - popvar, t);
+            // Frequency distribution standard deviation
+            const long double meanfreq = (long double)samples / N;  // potentially fractional if program setup changes
+            long double stddev = 0;
+            for (unsigned int j = 0; j < N; ++j) {
+                long double d = (long double)base[j] - meanfreq;
+                stddev += d * d;  // perhaps scale here already to avoid overflow? not necessary for current setup
+            }
+            // Scaling by sample size is not strictly correct but this gives consistent values around 1
+            // (N and not N-1 because this is the whole population of frequencies)
+            stddev = sqrtl((stddev / N) / samples);
+
+            // Show me the money
+            printf("%+12.8Lf%+12.8Lf%8.5Lf%8.3f\n", mean - popmean, variance - popvar, stddev, t);
         }
 
         // Enough is enough
-        if (m == multmax)
+        if (order == multmax)
             break;
 
         printf("\n");
-        samples *= 10;
+        prevsamples = samples;
+        samples *= sampleinc;
     }
+
+    free(facevalue);
+    free(hist);
     return 0;
 }
