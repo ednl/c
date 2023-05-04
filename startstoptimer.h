@@ -1,6 +1,7 @@
 #ifndef STARTSTOPTIMER_H
 #define STARTSTOPTIMER_H
 
+void   starttimer_q(void);
 void   starttimer  (void);
 double stoptimer_ns(void);
 double stoptimer_us(void);

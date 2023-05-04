@@ -1,3 +1,23 @@
+/**
+ * MacOS:
+ * - Compile: clang -std=gnu17 -Weverything -Ofast randombias.c startstoptimer.c
+ *
+ * Linux:
+ * - Install BSD library for arc4random: sudo apt install libbsd-dev
+ * - Compile: gcc -std=gnu17 -Wall -Ofast randombias.c startstoptimer.c -lbsd -lm
+ *
+ * Raspberry Pi: runs faster with CPU in performance mode.
+ * - Enable: echo performance | sudo tee /sys/devices/system/cpu/cpufreq/policy0/scaling_governor
+ * - Disable: reboot, or: echo ondemand | sudo tee /sys/devices/system/cpu/cpufreq/policy0/scaling_governor
+ *
+ * Examples:
+ * - No arguments: ./a.out
+ * - One argument: ./a.out 5 (=> use 5-sided dice with standard face values 1..5)
+ * - Two or more arguments: ./a.out 1 3 5 (=> use 3-sided dice with custom face values 1,3,5)
+ *
+ * E. Dronkert, May 2023
+ * https://github.com/ednl
+*/
 #include <stdio.h>     // printf, fprintf, fputc
 #include <stdlib.h>    // rand, drand48, random, arc4random (macOS), exit, malloc, calloc, free
 #include <stdint.h>    // uint64_t, int64_t
@@ -202,7 +222,7 @@ int main(int argc, char * argv[])
             uint64_t * const curhist = &hist[i * N];  // curhist[j] = hist[i][j] (i<rngcount,j<N)
 
             // New set of rolls for this RNG
-            starttimer();
+            starttimer_q();  // quiet = don't warn on RPi if CPU not in performance mode
             for (uint64_t j = 0; j < intervals; ++j) {
                 printf(".");  // progress bar
                 fflush(stdout);

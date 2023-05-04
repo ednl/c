@@ -18,6 +18,12 @@
 
 static struct timespec t0 = {0}, t1 = {0};
 
+// Quiet
+void starttimer_q(void)
+{
+    clock_gettime(CLOCK_MONOTONIC_RAW, &t0);
+}
+
 void starttimer(void)
 {
     // Warn on Raspberry Pi if not running at max performance
@@ -30,7 +36,7 @@ void starttimer(void)
                 "  Setting will be restored to default 'ondemand' at reboot.\n");
         fclose(f);
     }
-    clock_gettime(CLOCK_MONOTONIC_RAW, &t0);
+    starttimer_q();
 }
 
 double stoptimer_ns(void)
