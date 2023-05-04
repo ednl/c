@@ -3,6 +3,7 @@
 #include <stdint.h>    // uint64_t, int64_t
 #include <inttypes.h>  // PRIu64, PRId64
 #include <math.h>      // trunc
+#include <tgmath.h>    // sqrtl
 #include <time.h>      // time for srand48/srand/srandom seed
 #include <signal.h>    // catch ^C
 #ifdef __linux__
@@ -87,7 +88,7 @@ int main(int argc, char * argv[])
     const size_t multsize = sizeof multname / sizeof *multname;
     const size_t multmax = multsize - 1;  // maximum index into multname[]
     const uint64_t sampleinc = 10;  // every next round, sample size increases by this factor
-    double sampletime[rngcount] = {0};
+    double sampletime[sizeof rngfunc / sizeof *rngfunc] = {0};  // can't use rngcount because then gcc thinks it's a VLA
 
     // Number of die faces
     if (argc < 2)
