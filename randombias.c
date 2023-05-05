@@ -41,12 +41,8 @@ typedef unsigned int (*func_t)(void);
 // Number of die faces, can be changed via command line arguments
 //   One command line argument: custom number of faces
 //   Two or more arguments: custom face values (count = new number of faces)
+// (global to avoid having to pass argument to roll functions which are called billions of times)
 static unsigned int N = NDEF;
-
-// Standard or custom face values, histogram per RNG
-// (dynamically allocated, free in interrupt handler or at end of program)
-static  int64_t *facevalue = NULL;
-static uint64_t *hist = NULL;
 
 // Die-roll [0..N-1] using drand48()
 static unsigned int roll_drand48(void)
@@ -96,7 +92,14 @@ int main(int argc, char * argv[])
     const size_t multsize = sizeof multname / sizeof *multname;
     const size_t multmax = multsize - 1;  // maximum index into multname[]
     const uint64_t sampleinc = 10;  // every next round, sample size increases by this factor
-    double sampletime[sizeof rngfunc / sizeof *rngfunc] = {0};  // can't use rngcount because then gcc thinks it's a VLA
+
+    // Cumulative time taken per RNG (can't use rngcount because then gcc thinks it's a VLA)
+    double sampletime[sizeof rngfunc / sizeof *rngfunc] = {0};
+
+    // Standard or custom face values, histogram per RNG
+    // (dynamically allocated because sizes depend on variable N)
+    int64_t *facevalue = NULL;
+    uint64_t *hist = NULL;
 
     // Number of die faces
     if (argc < 2)
@@ -138,7 +141,7 @@ int main(int argc, char * argv[])
     }
     popvar /= N;
 
-    // Title
+    // Title and explanation
     printf("---------------------------------------------------------------------------------------------------------\n");
     printf("Check bias of different random number generators in the C standard library on macOS and Linux\n");
     printf("---------------------------------------------------------------------------------------------------------\n");
