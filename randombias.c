@@ -25,7 +25,6 @@
 #include <math.h>      // trunc
 #include <tgmath.h>    // sqrtl
 #include <time.h>      // time for srand48/srand/srandom seed
-#include <signal.h>    // catch ^C
 #ifdef __linux__
 #include <bsd/stdlib.h>  // arc4random (apt install libbsd-dev, link option: -lbsd)
 #endif
