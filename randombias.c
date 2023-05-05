@@ -49,17 +49,6 @@ static unsigned int N = NDEF;
 static  int64_t *facevalue = NULL;
 static uint64_t *hist = NULL;
 
-// Interrupt handler for SIGINT (^C)
-static void intHandler(int sig)
-{
-    if (sig == SIGINT) {
-        fputc('\n', stdout);
-        free(facevalue);
-        free(hist);
-        exit(0);
-    }
-}
-
 // Die-roll [0..N-1] using drand48()
 static unsigned int roll_drand48(void)
 {
@@ -118,11 +107,6 @@ int main(int argc, char * argv[])
     else
         N = (unsigned int)(argc - 1);
 
-    // Catch ^C, to free allocated memory before exit
-    struct sigaction ctrlc;
-    ctrlc.sa_handler = intHandler;
-    sigaction(SIGINT, &ctrlc, NULL);
-
     // Allocate memory for face values and histogram
     facevalue = malloc(N * sizeof *facevalue);  // may contain negative values via command line arguments
     hist = calloc(rngcount * N, sizeof *hist);  // init to zero
@@ -130,7 +114,7 @@ int main(int argc, char * argv[])
         fprintf(stderr, "Memory allocation failure.\n");
         free(facevalue);
         free(hist);
-        exit(1);
+        exit(1);  // clean exit, so could also leave free() to OS
     }
 
     // NB: ((sampleinc - 1) * samples) should be divisible by 'dots'
@@ -200,7 +184,7 @@ int main(int argc, char * argv[])
             fprintf(stderr, "Internal error: %"PRIu64"/%"PRIu64" has remainder.\n", addsamples, dots);
             free(facevalue);
             free(hist);
-            exit(2);
+            exit(2);  // clean exit, so could also leave free() to OS
         }
 
         // Header
