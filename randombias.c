@@ -10,10 +10,10 @@
  * - Enable: echo performance | sudo tee /sys/devices/system/cpu/cpufreq/policy0/scaling_governor
  * - Disable: reboot, or: echo ondemand | sudo tee /sys/devices/system/cpu/cpufreq/policy0/scaling_governor
  *
- * Examples:
+ * Example use:
  * - No arguments: ./a.out
  * - One argument: ./a.out 5 (=> use 5-sided dice with standard face values 1..5)
- * - Two or more arguments: ./a.out 1 3 5 (=> use 3-sided dice with custom face values 1,3,5)
+ * - Two or more arguments: ./a.out 0 0 1 (=> use 3-sided dice with custom face values 0,0,1)
  *
  * E. Dronkert, May 2023
  * https://github.com/ednl
