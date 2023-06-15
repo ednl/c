@@ -57,13 +57,13 @@ void mymd5(const char * const message, char * const digest)
         // Padding: append 0x80 and pad with 0x00 bytes so that the message length in bytes ≡ 56 (mod 64).
         if (chunklen < 64) {
             if (!padded) {
-                chunk[chunklen] = 0x80;  // rest of chunk array is already zero from initialisation
+                chunk[chunklen++] = 0x80;  // rest of chunk array is already zero from initialisation
                 padded = true;
             }
             if (chunklen <= 56) {
                 // Store length of original message *in bits* in last 64 bits of chunk (little-endian!)
                 chunklen = 56;
-                msglen <<= 3;  // byte count to bit count (mod 2^64)
+                msglen <<= 3;  // byte count is now bit count (mod 2^64)
                 while (msglen) {
                     chunk[chunklen++] = (uint8_t)msglen;  // use only the LSByte
                     msglen >>= 8;  // next byte
