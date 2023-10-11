@@ -57,10 +57,21 @@ static bool is_pronic(const uint64_t n)
     return r * (r + 1) == n;
 }
 
+// p(0) = 0
+// p(i) = i*(i+1) = i^2 + i
+// p(i+1) = (i+1)*(i+2) = i^2 + 3i + 2 = f(i) + 2(i+1)
+bool is_pronic_alt(uint64_t n)
+{
+    uint64_t i = 0, p = 0;
+    while (p < n)
+        p += ++i * 2;
+    return p == n;
+}
+
 int main(void)
 {
     for (uint64_t i = 0; i <= 100; ++i)
-        if (is_pronic(i))
+        if (is_pronic_alt(i))
             printf("%2llu = %7s\n", i, bin(i, NULL));
     return 0;
 }
