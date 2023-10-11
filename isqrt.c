@@ -9,9 +9,7 @@
 // clz = Count Leading Zeros (undefined for n=0)
 static inline int msb_index(uint64_t n)
 {
-    #define MAXINDEX ((int)sizeof(n) * CHAR_BIT - 1)
-    return MAXINDEX - __builtin_clzll(n | 1);
-    #undef MAXINDEX
+    return (int)sizeof(n) * CHAR_BIT - 1 - __builtin_clzll(n | 1);
 }
 
 // Binary representation of number n, no leading zeros.
