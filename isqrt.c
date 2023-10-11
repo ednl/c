@@ -4,12 +4,19 @@
 #include <stdint.h>   // uint64_t
 #include <stdbool.h>  // bool
 
+// Width of binary representation without leading zeros.
+// Range: 1..64 (0 => 1).
+// clz = Count Leading Zeros (undefined for n=0)
+static inline int bit_width(const uint64_t n)
+{
+    return (int)sizeof(n) * CHAR_BIT - __builtin_clzll(n | 1);
+}
+
 // Index of most significant bit that is set.
 // Range: 0..63 (0 => 0).
-// clz = Count Leading Zeros (undefined for n=0)
 static inline int msb_index(uint64_t n)
 {
-    return (int)sizeof(n) * CHAR_BIT - 1 - __builtin_clzll(n | 1);
+    return bit_width(n) - 1;
 }
 
 // Binary representation of number n, no leading zeros.
