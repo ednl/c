@@ -14,7 +14,7 @@ static inline int bit_width(const uint64_t n)
 
 // Index of most significant bit that is set.
 // Range: 0..63 (0 => 0).
-static inline int msb_index(uint64_t n)
+static inline int msb_index(const uint64_t n)
 {
     return bit_width(n) - 1;
 }
