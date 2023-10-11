@@ -1,8 +1,8 @@
-#include <stdio.h>   // printf
-#include <stdlib.h>  // NULL
-#include <limits.h>  // CHAR_BIT
-#include <stdint.h>  // uint64_t
-#include <math.h>    // sqrtl, truncl
+#include <stdio.h>    // printf
+#include <stdlib.h>   // NULL
+#include <limits.h>   // CHAR_BIT
+#include <stdint.h>   // uint64_t
+#include <stdbool.h>  // bool
 
 // Index of most significant bit that is set.
 // Range: 0..63 (0 => 0).
@@ -14,8 +14,8 @@ static inline int msb_index(uint64_t n)
     #undef MAXINDEX
 }
 
-// Binary representation of number n
-// Use buf if provided (must be at least 65 char long)
+// Binary representation of number n, no leading zeros.
+// Use buf if provided (must be at least 65 char long).
 static char* bin(const uint64_t n, char* const buf)
 {
     static char sbuf[sizeof(n) * CHAR_BIT + 1];
@@ -43,14 +43,19 @@ static uint64_t isqrt(const uint64_t n)
     return x0;
 }
 
+// https://en.wikipedia.org/wiki/Pronic_number
+static bool is_pronic(const uint64_t n)
+{
+    if (n & 1)
+        return false;
+    const uint64_t r = isqrt(n);
+    return r * (r + 1) == n;
+}
+
 int main(void)
 {
-    for (uint64_t i = 0; i <= 100; ++i) {
-        long double s = sqrtl(i);
-        uint64_t t = truncl(s);
-        uint64_t u = isqrt(i);
-        if (t != u)
-            printf("sqrt(%llu) = %.3Lf = %llu != %llu\n", i, s, t, u);
-    }
+    for (uint64_t i = 0; i <= 100; ++i)
+        if (is_pronic(i))
+            printf("%2llu = %7s\n", i, bin(i, NULL));
     return 0;
 }
