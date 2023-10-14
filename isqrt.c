@@ -60,7 +60,7 @@ static bool is_pronic(const uint64_t n)
 // p(0) = 0
 // p(i) = i*(i+1) = i^2 + i
 // p(i+1) = (i+1)*(i+2) = i^2 + 3i + 2 = f(i) + 2(i+1)
-bool is_pronic_alt(uint64_t n)
+bool is_pronic_alt(const uint64_t n)
 {
     uint64_t i = 0, p = 0;
     while (p < n)
