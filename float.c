@@ -9,10 +9,7 @@ int main(void)
         uint32_t u;
         float r;
     } t = {0x40000001};
-    int i = 0;
-    while (t.u) {
-        printf("%3d: %08x %.8e\n", i++, t.u, t.r);
-        t.r /= 2;
-    }
+    for (int i = 0; t.u; ++i, t.r /= 2)
+        printf("%3d: %08x %.8e\n", i, t.u, t.r);
     return 0;
 }
