@@ -148,7 +148,7 @@ static Vec matmul(const double M[3][3], const Vec x)
 
 int main(void)
 {
-    // Start at random positions
+    // Start at random positions.
     srand48(time(NULL));
     for (int i = 0; i < N; ++i) {
         body[i].q.x = drand48() * 2 - 1;
@@ -161,13 +161,14 @@ int main(void)
 
     // Evolve
     for (int i = 0; i < 5; ++i) {
-        for (int j = 0; j < 2000; ++j)
-            integrate(0.01);
+        for (int j = 0; j < 2000; ++j)  // increase for closer to final positions
+            integrate(0.001);  // decrease for more accurate integration
         getangles();
         printf("%4d:\n", i);
         show();
     }
 
+    // Rotate so that q0 becomes (1,0,0), for clearer picture.
     Vec u = cross(body[0].q, (Vec){1,0,0});
     norm_r(&u);
     const double theta = angle(body[0].q, (Vec){1,0,0});
