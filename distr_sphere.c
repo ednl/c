@@ -1,11 +1,19 @@
+/**
+ * Problem: distribute points evenly on a sphere.
+ * Try: n-body problem with repulsive force,
+ *      and motion constricted to sphere.
+ * Status: works for N=2, 4, 6; not for 3, 5.
+ * For N=3: angles should be 120,120,120 but are 90,90,180 in a T-shape.
+ * Same for N=5: all points q[1..] in a plane perpendicular to q[0].
+ */
+
 #include <stdio.h>
 #include <stdlib.h>  // rand
-#include <string.h>  // memcpy
 #include <math.h>    // sqrt, acos
 #include <float.h>   // DBL_EPSILON
 #include <time.h>    // time
 
-#define N 3
+#define N 5
 #define DEG (180 / M_PI)
 
 typedef struct vec {
@@ -73,7 +81,7 @@ static double len(const Vec v)
 static void norm_r(Vec* const v)
 {
     const double n = len(*v);
-    if (fpclassify(n) != FP_ZERO && isgreater(n, DBL_EPSILON))
+    if (fpclassify(n) != FP_ZERO && isgreater(fabs(n), DBL_EPSILON))
         mul_r(v, 1 / n);
 }
 
@@ -91,7 +99,7 @@ static void integrate(const double dt)
         Body* bj = bi + 1;
         for (int j = i + 1; j < N; ++j, ++bj) {
             bj->a = (Vec){0};
-            const Vec dq = sub(bi->q, bj->q);  // rejective force (normally qj-qi = attractive)
+            const Vec dq = sub(bi->q, bj->q);  // repulsive force (normally: qj-qi = attractive)
             const double dotdq = dot(dq, dq), dq3 = dotdq * sqrt(dotdq);
             const Vec da = mul(dq, 10 / dq3);  // factor 10 for more effect
             add_r(&bi->a, da);
@@ -102,6 +110,7 @@ static void integrate(const double dt)
     Body* b = &body[0];
     for (int i = 0; i < N; ++i, ++b) {
         sub_r(&b->a, mul(b->q, dot(b->a, b->q) / dot(b->q, b->q)));  // orth. projection of a onto q
+        sub_r(&b->a, mul(b->v, -0.1));  // friction term
         add_r(&b->v, mul(b->a, dt));  // velocity integration step
         add_r(&b->q, mul(b->v, dt));  // position integration step
         norm_r(&b->q);
@@ -151,8 +160,8 @@ int main(void)
     show();
 
     // Evolve
-    for (int i = 0; i < 10; ++i) {
-        for (int j = 0; j < 100; ++j)
+    for (int i = 0; i < 5; ++i) {
+        for (int j = 0; j < 2000; ++j)
             integrate(0.01);
         getangles();
         printf("%4d:\n", i);
