@@ -6,6 +6,7 @@
 #include <stdio.h>   // printf
 #include <stdint.h>  // int64_t
 #include <math.h>    // exp, log
+// #include "startstoptimer.h"
 
 static int64_t pow4(int64_t x)
 {
@@ -21,6 +22,7 @@ static int64_t pow5(int64_t x)
 
 int main(void)
 {
+    // starttimer();
     for (int64_t n = 5;; ++n) {
         const int64_t target = pow5(n);
         for (int64_t a = 1;; ++a) {
@@ -38,6 +40,7 @@ int main(void)
                     const int64_t d = (int64_t)(round(exp(0.2 * log(res_c))));
                     if (pow5(d) == res_c) {
                         printf("%lld^5 = %lld^5 + %lld^5 + %lld^5 + %lld^5\n", n, a, b, c, d);
+                        // printf("Time: %.0f ms\n", stoptimer_ms());
                         return 0;
                     }
                 }
