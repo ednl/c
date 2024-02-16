@@ -2,54 +2,107 @@
 // Counterexample: find N Kth powers whose sum is equal to a Kth power where N<K.
 // For N=4, K=5 should find: 144^5 = 27^5 + 84^5 + 110^5 + 133^5
 // Code slightly optimised from https://www.reddit.com/r/math/comments/1apnbf5/has_there_even_been_a_famous_and_longstanding/kq92guo/
+// Lots more optimisations at https://rosettacode.org/wiki/Euler%27s_sum_of_powers_conjecture
 
 #include <stdio.h>   // printf
-#include <stdint.h>  // int64_t
-#include <math.h>    // exp, log
-// #include "startstoptimer.h"
+#include <stdlib.h>  // abs
+#include <string.h>  // memcpy
+#include <stdint.h>  // uint64_t
+#include <math.h>    // round
+#include "startstoptimer.h"
 
-static int64_t p[256];
+#define N 7132U  // maximum N so that (N-1)^5 < 2^64
 
-static int64_t fourth(int64_t x)
+static uint64_t p[N];  // p[i] = i^5
+static int8_t   r[N] = {0,1,-1,1,1,1,-1,-1,-1,1,-1};  // r[i] = i^5 % 11 (=-1/0/1)
+
+static uint64_t ifourth(uint64_t x)
 {
     x *= x;
-    x *= x;
-    return x;
+    return x * x;
 }
 
-static int64_t fifth(int64_t x)
+static uint64_t ififth(uint64_t x)
 {
-    return fourth(x) * x;
+    return ifourth(x) * x;
+}
+
+static double ffourth(double x)
+{
+    x *= x;
+    return x * x;
+}
+
+static double ffifth(double x)
+{
+    return ffourth(x) * x;
+}
+
+// Slower: round(exp(0.2 * log(x))
+static double fast_root5(double x) {
+    static const uint64_t magic = 3685583637919522816ULL;
+    union {
+        double f;
+        uint64_t i;
+    } u;
+    u.f = x;
+    u.i /= 5;
+    u.i += magic;
+    u.f = (4 * ffifth(u.f) + x) / (5 * ffourth(u.f));
+    u.f = (4 * ffifth(u.f) + x) / (5 * ffourth(u.f));
+    return u.f;
 }
 
 int main(void)
 {
-    // starttimer();
-    for (int64_t i = 0; i < 256; ++i)
-        p[i] = fifth(i);
+    starttimer();
 
-    for (int64_t n = 5; n < 256; ++n) {
-        const int64_t target = p[n];
-        for (int64_t a = 1;; ++a) {
-            const int64_t a5 = p[a];
-            const int64_t res_a = target - a5;
-            if (res_a <= a5) break;
-            for (int64_t b = a + 1;; ++b) {
-                const int64_t b5 = p[b];
-                const int64_t res_b = res_a - b5;
-                if (res_b <= b5) break;
-                for (int64_t c = b + 1;; ++c) {
-                    const int64_t c5 = p[c];
-                    const int64_t res_c = res_b - c5;
-                    if (res_c <= c5) break;
-                    const int64_t d = (int64_t)(round(exp(0.2 * log(res_c))));
-                    if (p[d] == res_c) {
-                        printf("%lld^5 = %lld^5 + %lld^5 + %lld^5 + %lld^5\n", n, a, b, c, d);
-                        // printf("Time: %.0f ms\n", stoptimer_ms());
-                        return 0;
-                    }
+    // List of fifth powers: p[i] = i^5
+    for (uint64_t i = 0; i < N; ++i)
+        p[i] = ififth(i);
+
+    // List of residues: r[i] = i^5 mod 11 = [-1,0,+1]
+    const int8_t * const src = r;
+    const int8_t * const end = r + sizeof r;
+    size_t len = sizeof *r * 11;
+    int8_t *dst = r + len, *nxt = dst + len;
+    while (nxt <= end) {
+        memcpy(dst, src, len);
+        dst = nxt;
+        len <<= 1;
+        nxt = dst + len;
+    }
+    if (dst < end)
+        memcpy(dst, src, end - dst);
+
+    // for (unsigned n = 5; n < N; ++n)  // N=7132 to avoid 64-bit overflow, limit N further for reasonable runtime
+    for (unsigned n = 5; n < 721; ++n)
+        for (unsigned a = 1; a < n - 3; ++a) {
+
+            const int8_t res1 = r[n] - r[a];  // first residu, no limitations here, but must end at 0 in inner loop
+            if (p[a] * 4 >= p[n]) break;
+            const uint64_t partial_a = p[n] - p[a];
+
+            for (unsigned b = a + 1; b < n - 2; ++b) {
+
+                const int8_t res2 = res1 - r[b];  // second residue must be |res2| <= 2
+                if (abs(res2) > 2) continue;
+                if (p[b] * 3 >= partial_a) break;
+                const uint64_t partial_b = partial_a - p[b];
+
+                for (unsigned c = b + 1; c < n - 1; ++c) {
+
+                    const int8_t res3 = res2 - r[c];  // third residu must be |res3| <= 1
+                    if (abs(res3) > 1) continue;
+                    if (p[c] * 2 >= partial_b) break;
+                    const uint64_t partial_c = partial_b - p[c];
+                    const unsigned d = (unsigned)(round(fast_root5(partial_c)));
+                    if (p[d] == partial_c)  // last residue check is redundant if also using equality check
+                        printf("%u^5 = %u^5 + %u^5 + %u^5 + %u^5\n", n, a, b, c, d);
                 }
             }
         }
-    }
+
+    printf("Time: %.1f s\n", stoptimer_s());
+    return 0;
 }
