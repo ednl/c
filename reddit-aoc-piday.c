@@ -1,20 +1,33 @@
+/**
+ * 2024 Pi Day celebration puzzle in the style of Advent of Code.
+ * https://www.reddit.com/r/adventofcode/comments/1bejcvc/pi_coding_quest/
+ * https://ivanr3d.com/projects/pi/
+ * Given: message encoded with a shift cipher based on the first 16 digits
+ * of pi repeating. Only the letter characers are shifted.
+ * Part 1: Decode the message.
+ * Part 2: Find all words of numbers 1 to 10 in the text, possibly split up
+ *         by non-letter characters, and multiply the numbers found.
+ */
+
 #include <stdio.h>
 #include <string.h>  // strstr
 
 #define ALPH ('z' - 'a' + 1)  // 26 letters
 #define CASE 32  // lowercase = uppercase | 32
 
-static const char pi[] = "314159265358979323846264338327950288";
+static const char pi[] = "314159265358979323846264338327950288";  // copied from math.h::M_PI
 static const char* num[] = {"zero", "one", "two", "three", "four", "five", "six", "seven", "eight", "nine", "ten"};
 static char msg[] = "Wii kxtszof ova fsegyrpm d lnsrjkujvq roj! Kdaxii svw vnwhj pvugho buynkx tn vwh-gsvw ruzqia. Mrq'x kxtmjw bx fhlhlujw cjoq! Hmg tyhfa gx dwd fdqu bsm osynbn oulfrex, kahs con vjpmd qtjv bx whwxssp cti hmulkudui f Jgusd Yp Gdz!";
 
 static inline char shift(const char letter, const char base, const int index)
 {
-    return base + (ALPH + letter - base - (pi[index & 15] & 15)) % ALPH;
+    const char amount = pi[index & 15] & 15;  // index 0..15 repeating, convert '0'..'9' to 0..9
+    return base + (ALPH + letter - base - amount) % ALPH;  // subtract shift amount to decode
 }
 
 int main(void)
 {
+    // Decode message and save lowercased letters to continuous string.
     char letters[256] = {0};
     int i = 0, count = 0;
     for (char* s = msg; *s; ++s, ++i)
@@ -24,6 +37,7 @@ int main(void)
             letters[count++] = (*s = shift(*s, 'A', i)) | CASE;
     printf("Part 1: %s\n", msg);
 
+    // Take product of all number words in message.
     int prod = 1;
     for (int n = 2; n <= 10; ++n) {
         const size_t len = strlen(num[n]);
