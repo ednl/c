@@ -31,17 +31,15 @@ int main(void)
     char letters[256] = {0};
     int i = 0, count = 0;
     for (char* s = msg; *s; ++s, ++i)
-        if (*s >= 'a' && *s <= 'z')
-            letters[count++] = *s = shift(*s, 'a', i);
-        else if ((*s >= 'A' && *s <= 'Z'))
-            letters[count++] = (*s = shift(*s, 'A', i)) | CASE;
+        if (*s >= 'A')
+            letters[count++] = (*s = shift(*s, (*s & 96) | 1, i)) | CASE;
     printf("Part 1: %s\n", msg);
 
     // Take product of all number words in message.
     int prod = 1;
-    for (int n = 2; n <= 10; ++n) {
+    for (int n = 2; n <= 10; ++n) {  // "zero" added for alignment, skip "one" (product identity)
         const size_t len = strlen(num[n]);
-        for (const char* s = letters; (s = strstr(s, num[n])); s += len)
+        for (const char* s = letters; (s = strstr(s, num[n])); s += len)  // NULL = not found
             prod *= n;
     }
     printf("Part 2: %d\n", prod);
