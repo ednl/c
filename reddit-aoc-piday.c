@@ -19,7 +19,9 @@
 
 static const char pi[] = "314159265358979323846264338327950288";  // copied from math.h::M_PI
 static const char *num[] = {"zero", "one", "two", "three", "four", "five", "six", "seven", "eight", "nine", "ten"};
-static char msg[] = "Wii kxtszof ova fsegyrpm d lnsrjkujvq roj! Kdaxii svw vnwhj pvugho buynkx tn vwh-gsvw ruzqia. Mrq'x kxtmjw bx fhlhlujw cjoq! Hmg tyhfa gx dwd fdqu bsm osynbn oulfrex, kahs con vjpmd qtjv bx whwxssp cti hmulkudui f Jgusd Yp Gdz!";
+static char msg[] = "Wii kxtszof ova fsegyrpm d lnsrjkujvq roj! Kdaxii svw vnwhj pvugho buynkx tn vwh-gsvw ruzqia."
+    " Mrq'x kxtmjw bx fhlhlujw cjoq! Hmg tyhfa gx dwd fdqu bsm osynbn oulfrex, kahs con vjpmd qtjv bx whwxssp cti"
+    " hmulkudui f Jgusd Yp Gdz!";
 
 int main(void)
 {
@@ -33,7 +35,9 @@ int main(void)
             *s = base + (*s - base + ALPH - shift) % ALPH;  // decode by subtracting shift amount
             letters[count++] = *s | CASE;  // save lowercase letters
         }
-    printf("Part 1: \"%s\"\n", msg);  // The formula for crafting a delightful pie! Cutoff our three golden apples of one-four pounds. Don't forget to weighten well! Add sugar as you want and invite friends, even the silly ones to network and celebrate a Happy Pi Day!
+    printf("Part 1: \"%s\"\n", msg);  // The formula for crafting a delightful pie! Cutoff our three golden apples of
+                                      // one-four pounds. Don't forget to weighten well! Add sugar as you want and
+                                      // invite friends, even the silly ones to network and celebrate a Happy Pi Day!
 
     // Multiply all number words in message.
     int prod = 1;
