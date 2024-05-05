@@ -31,16 +31,19 @@ int main(void)
     printf("double           = %zu\n", sizeof(double     ) * CHAR_BIT);
     printf("long double      = %zu\n", sizeof(long double) * CHAR_BIT);
     printf("FLT_RADIX        = %d\n", FLT_RADIX);
-    printf("FLT_ROUNDS       = %d (-1,0,1,2,3 = ?,to 0,nearest,+inf,-inf)\n", FLT_ROUNDS);
-    printf("FLT_EVAL_METHOD  = %d (0,1,2 = none,double,long double)\n", FLT_EVAL_METHOD);
-    printf("FLT_HAS_SUBNORM  = %d (-1,0,1 = ?,no,yes)\n", FLT_HAS_SUBNORM);
+    printf("FLT_ROUNDS       = %d (-1,0,1,2,3: ?,to 0,nearest,+inf,-inf)\n", FLT_ROUNDS);
+    printf("FLT_EVAL_METHOD  = %d (-1,0,1,2: ?,none,double,long double)\n", FLT_EVAL_METHOD);
+    printf("FLT_HAS_SUBNORM  = %d (-1,0,1: ?,no,yes)\n", FLT_HAS_SUBNORM);
 
     printf("\n----- Float Limits --------------------\n");
     printf("FLT_DECIMAL_DIG  = %d\n", FLT_DECIMAL_DIG);
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdouble-promotion"
     printf("FLT_MIN          = %.8e\n", FLT_MIN);
     printf("FLT_TRUE_MIN     = %.8e\n", FLT_TRUE_MIN);
     printf("FLT_MAX          = %.8e\n", FLT_MAX);
     printf("FLT_EPSILON      = %.8e\n", FLT_EPSILON);
+#pragma clang diagnostic pop
     printf("FLT_DIG          = %d\n", FLT_DIG);
     printf("FLT_MANT_DIG     = %d\n", FLT_MANT_DIG);
     printf("FLT_MIN_EXP      = %d\n", FLT_MIN_EXP);
