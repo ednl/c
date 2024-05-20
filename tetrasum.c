@@ -1,79 +1,82 @@
+/******************************************************************************
+ * Brady Haran of Numberphile asked: which 5 tetrahedral numbers sum to 343867?
+ * This is my solution that finds 277 different combinations of 5 distinct
+ * tetrahedral numbers. I implemented Donald Knuth's algorithm to find all
+ * combinations of k elements from a set of n, from The Art of Computer
+ * Programming - Volume 4A - Combinatorial Algorithms, §7.2.1.3, algorithm T.
+ *
+ * Compile: clang -std=gnu17 -Ofast -o tetrasum tetrasum.c combinations.c
+ * Run: ./tetrasum 343867 5
+ *
+ * E. Dronkert
+ * Utrecht, Netherlands
+ * 2024-05-20
+ * https://github.com/ednl/c/blob/master/tetrasum.c
+ ******************************************************************************/
+
 #include <stdio.h>
-#include <stdlib.h>  // atoll
-#include <stdint.h>  // UINT32_MAX
+#include <stdlib.h>  // atoll, malloc
+#include <limits.h>  // INT_MAX
+#include <math.h>    // cbrt, ceil
+#include "combinations.h"
 
-// The N'th tetrahedral number is greater than the sum
-#define N 128
-
-// Tetrahedral numbers 0..N-1
-static unsigned tetra[N];
-
-// Search for a sum of 'take' distinct tetrahedral numbers
-static unsigned take = 5;
-static unsigned sum = 343867;
+#define SUM_MAX (INT_MAX / 6)
+#define TAKE_MAX 128
 
 // Calculate the n'th tetrahedral number
-static unsigned tetracalc(const unsigned n)
+static int tetracalc(const int n)
 {
     return ((n * (n + 1)) >> 1) * (n + 2) / 3;
 }
 
 int main(int argc, char *argv[])
 {
-    if (argc > 3) {
-        fprintf(stderr, "Use 0, 1 or 2 arguments.\n");
+    if (argc != 3) {
+        fprintf(stderr, "Useage: %s <sum> <summands>\n", argv[0]);
         return 1;
     }
-    if (argc > 1) {
-        long long t = atoll(argv[1]);
-        if (t > 0 && t <= UINT32_MAX)
-            sum = (unsigned)t;
-        else {
-            fprintf(stderr, "Argument 1 out of range.\n");
-            return 2;
-        }
+
+    int sum = 0, take = 0;
+    long long t = atoll(argv[1]);
+    if (t > 0 && t <= SUM_MAX)
+        sum = (int)t;
+    else {
+        fprintf(stderr, "Argument 1 out of range: 0 < sum <= %d\n", SUM_MAX);
+        return 2;
     }
-    if (argc == 3) {
-        long long t = atoll(argv[2]);
-        if (t > 0 && t < 128)
-            take = (unsigned)t;
-        else {
-            fprintf(stderr, "Argument 2 out of range.\n");
-            return 3;
-        }
+    t = atoll(argv[2]);
+    if (t > 0 && t <= TAKE_MAX)
+        take = (int)t;
+    else {
+        fprintf(stderr, "Argument 2 out of range: 0 < summands <= %d\n", TAKE_MAX);
+        return 3;
     }
-    printf("Find %u tetrahedral numbers that sum to %u\n", take, sum);
-    printf("------------------------------------------------\n");
+    printf("Find all combinations of %d distinct tetrahedral numbers that sum to %d\n", take, sum);
+    printf("------------------------------------------------------------------------------------------\n");
 
     // Precompute the first N tetrahedral numbers
-    for (unsigned i = 0; i < N; ++i)
-        tetra[i] = tetracalc(i);
+    const int N = (int)(ceil(cbrt(sum * 6)));
+    int *tetra = malloc((size_t)N * sizeof *tetra);
+    for (int i = 0; i < N; ++i)
+        tetra[i] = tetracalc(i + 1);  // do not use T(0)=0
 
-    // TODO: use combinations algorithmn to enumerate all unique k-subsets (where k=take)
-    // of the n-set (where n=N) of tetrahedral numbers, e.g. with Gray code.
-    unsigned solutions = 0;
-    for (unsigned i0 = 0; i0 < N - 4; ++i0) {
-        unsigned p0 = tetra[i0];
-        if (p0 >= sum) break;
-        for (unsigned i1 = i0 + 1; i1 < N - 3; ++i1) {
-            unsigned p1 = p0 + tetra[i1];
-            if (p1 >= sum) break;
-            for (unsigned i2 = i1 + 1; i2 < N - 2; ++i2) {
-                unsigned p2 = p1 + tetra[i2];
-                if (p2 >= sum) break;
-                for (unsigned i3 = i2 + 1; i3 < N - 1; ++i3) {
-                    unsigned p3 = p2 + tetra[i3];
-                    if (p3 >= sum) break;
-                    for (unsigned i4 = i3 + 1; i4 < N; ++i4) {
-                        unsigned p4 = p3 + tetra[i4];
-                        if (p4 > sum) break;
-                        if (p4 == sum)
-                            printf("%u: T(%u)+T(%u)+T(%u)+T(%u)+T(%u) = %u+%u+%u+%u+%u = %u\n",
-                                ++solutions, i0, i1, i2, i3, i4, tetra[i0], tetra[i1], tetra[i2], tetra[i3], tetra[i4], sum);
-                    }
-                }
-            }
+    int *index = NULL, solutions = 0;
+    while ((index = combinations(N, take))) {
+        int s = 0;
+        for (int i = 0; i < take; ++i)
+            s += tetra[index[i]];
+        if (s == sum) {
+            printf("%u: T(%d)", ++solutions, index[0] + 1);  // adjust index for skipping T(0)
+            for (int i = 1; i < take; ++i)
+                printf("+T(%u)", index[i] + 1);  // adjust index for skipping T(0)
+            printf(" = %u", tetra[index[0]]);
+            for (int i = 1; i < take; ++i)
+                printf("+%u", tetra[index[i]]);
+            printf(" = %d\n", sum);
         }
     }
+    printf("------------------------------------------------------------------------------------------\n");
+    printf("Found %d different combinations of %d distinct tetrahedral numbers that sum to %d\n", solutions, take, sum);
+    free(tetra);
     return 0;
 }
