@@ -3,11 +3,12 @@
 
 int main(void)
 {
-    const int n = 3, k = 2;
-    int *a = NULL;
+    const int n = 6, k = 3;
+    int count = 0, *a = NULL;
     while ((a = combinations(n, k))) {
-        for (int i = 0; i < k; ++i)
-            printf(" %d", a[i]);
+        printf("%3d:", ++count);
+        for (int i = k; i > 0;)
+            printf(" %d", a[--i]);
         printf("\n");
     }
     return 0;
