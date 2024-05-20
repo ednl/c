@@ -8,14 +8,14 @@
 // Tetrahedral numbers 0..N-1
 static unsigned tetra[N];
 
-// Search for a sum of k distinct tetrahedral numbers
+// Search for a sum of 'take' distinct tetrahedral numbers
 static unsigned take = 5;
 static unsigned sum = 343867;
 
-// Calculate the i'th tetrahedral number
-static unsigned tetracalc(const unsigned i)
+// Calculate the n'th tetrahedral number
+static unsigned tetracalc(const unsigned n)
 {
-    return ((i * (i + 1)) >> 1) * (i + 2) / 3;
+    return ((n * (n + 1)) >> 1) * (n + 2) / 3;
 }
 
 int main(int argc, char *argv[])
