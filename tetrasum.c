@@ -15,16 +15,16 @@
  ******************************************************************************/
 
 #include <stdio.h>
-#include <stdlib.h>  // atoll, malloc
+#include <stdlib.h>  // atoll, malloc, free
 #include <limits.h>  // INT_MAX
 #include <math.h>    // cbrt, ceil
 #include "combinations.h"
 
-// Avoid overflow when determining tetrahedral number count.
-#define SUM_MAX (INT_MAX / 6)
+// Avoid overflow when determining tetrahedral number count to choose from.
+#define TARGET_MAX (INT_MAX / 6)
 
 // Arbitrary limit, but n!/(k!(n-k)!) grows fast.
-#define TAKE_MAX 128
+#define PARTS_MAX 128
 
 // Calculate the n'th tetrahedral number.
 static int tetracalc(const int n)
@@ -34,53 +34,60 @@ static int tetracalc(const int n)
 
 int main(int argc, char *argv[])
 {
+    // Must have two command line arguments: target (= sum) and parts (= how many parts make up the sum).
     if (argc != 3) {
-        fprintf(stderr, "Useage: %s <sum> <summands>\n", argv[0]);  // summands = how many parts in the sum
+        fprintf(stderr, "Useage: %s <target> <parts>\n", argv[0]);
         return 1;
     }
-    const long long t1 = atoll(argv[1]), t2 = atoll(argv[2]);
-    if (t1 <= 0 || t1 > SUM_MAX) {
-        fprintf(stderr, "Argument 1 out of range: 0 < sum <= %d\n", SUM_MAX);
+
+    // Check argument values.
+    const long long a1 = atoll(argv[1]), a2 = atoll(argv[2]);
+    if (a1 <= 0 || a1 > TARGET_MAX) {
+        fprintf(stderr, "Argument 1 out of range: 0 < target <= %d\n", TARGET_MAX);
         return 2;
     }
-    if (t2 <= 0 || t2 > TAKE_MAX) {
-        fprintf(stderr, "Argument 2 out of range: 0 < summands <= %d\n", TAKE_MAX);
+    if (a2 <= 0 || a2 > PARTS_MAX) {
+        fprintf(stderr, "Argument 2 out of range: 0 < parts <= %d\n", PARTS_MAX);
         return 3;
     }
-    const int sum = (int)t1, take = (int)t2;
-    printf("Find all combinations of %d distinct tetrahedral numbers that sum to %d:\n", take, sum);
+
+    // Header.
+    const int target = (int)a1, parts = (int)a2;
+    printf("Find all combinations of %d distinct tetrahedral numbers that sum to %d:\n", parts, target);
     printf("------------------------------------------------------------------------------------------\n");
 
     // Precompute the first N tetrahedral numbers to choose from.
-    const int N = (int)(ceil(cbrt(sum * 6)));
+    const int N = (int)(ceil(cbrt(target * 6)));
     int *tetra = malloc((size_t)N * sizeof *tetra);
     for (int i = 0; i < N; ++i)
         tetra[i] = tetracalc(i);
 
+    // Check all combinations.
     int *index = NULL, solutions = 0;
-    while ((index = combinations(N, take))) {
+    while ((index = combinations(N, parts))) {
         // Skip first tetrahedral number T(0)=0 because a zero term is no term.
         if (!index[0])
             continue;
-
         // Sum of current combination.
-        int combosum = 0;
-        for (int i = 0; i < take; ++i)
-            combosum += tetra[index[i]];
-
+        int sum = tetra[index[0]];
+        for (int i = 1; i < parts; ++i)
+            sum += tetra[index[i]];
         // Is this a solution?
-        if (combosum == sum) {
+        if (sum == target) {
             printf("%u: T(%d)", ++solutions, index[0]);
-            for (int i = 1; i < take; ++i)
-                printf("+T(%u)", index[i]);
-            printf(" = %u", tetra[index[0]]);
-            for (int i = 1; i < take; ++i)
-                printf("+%u", tetra[index[i]]);
-            printf(" = %d\n", sum);
+            for (int i = 1; i < parts; ++i)
+                printf("+T(%d)", index[i]);
+            printf(" = %d", tetra[index[0]]);
+            for (int i = 1; i < parts; ++i)
+                printf("+%d", tetra[index[i]]);
+            printf(" = %d\n", target);
         }
     }
+
+    // Footer.
     printf("------------------------------------------------------------------------------------------\n");
-    printf("Found %d different combinations of %d distinct tetrahedral numbers that sum to %d.\n", solutions, take, sum);
+    printf("Found %d different combinations of %d distinct tetrahedral numbers that sum to %d.\n", solutions, parts, target);
+
     free(tetra);
     return 0;
 }
