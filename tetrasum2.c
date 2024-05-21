@@ -46,9 +46,18 @@ int main(int argc, char *argv[])
                 for (uint32_t l = k; l < N; ++l) {
                     uint32_t d = c + tetra[l];
                     if (d >= target) { if (d == target) { ++total; ++part[3]; dup += solution(i, j, k, l, 0); } break; }
-                    for (uint32_t m = l; m < N; ++m) {
-                        uint32_t e = d + tetra[m];
-                        if (e >= target) { if (e == target) { ++total; ++part[4]; dup += solution(i, j, k, l, m); } break; }
+                    // Try to find fifth term:
+                    uint32_t res = target - d;  // residue
+                    if (res < tetra[l] || res > tetra[N - 1]) continue;
+                    if (res == tetra[l]) { ++total; ++part[4]; dup += solution(i, j, k, l, l); continue; }
+                    if (res == tetra[N - 1]) { ++total; ++part[4]; dup += solution(i, j, k, l, N - 1); continue; }
+                    uint32_t min = l, max = N - 1, m;
+                    while (min < max) {
+                        m = ((min + 1) >> 1) + (max >> 1);
+                        if (m == min || m == max) break;
+                        if      (tetra[m] < res) min = m;
+                        else if (tetra[m] > res) max = m;
+                        else { ++total; ++part[4]; dup += solution(i, j, k, l, m); break; };
                     }
                 }
             }
