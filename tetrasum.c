@@ -20,55 +20,59 @@
 #include <math.h>    // cbrt, ceil
 #include "combinations.h"
 
+// Avoid overflow when determining tetrahedral number count.
 #define SUM_MAX (INT_MAX / 6)
+
+// Arbitrary limit, but n!/(k!(n-k)!) grows fast.
 #define TAKE_MAX 128
 
-// Calculate the n'th tetrahedral number
+// Calculate the n'th tetrahedral number.
 static int tetracalc(const int n)
 {
-    return ((n * (n + 1)) >> 1) * (n + 2) / 3;
+    return ((n * (n + 1)) >> 1) * (n + 2) / 3;  // avoid early overflow by dividing in 2 steps
 }
 
 int main(int argc, char *argv[])
 {
     if (argc != 3) {
-        fprintf(stderr, "Useage: %s <sum> <summands>\n", argv[0]);
+        fprintf(stderr, "Useage: %s <sum> <summands>\n", argv[0]);  // summands = how many parts in the sum
         return 1;
     }
-
-    int sum = 0, take = 0;
-    long long t = atoll(argv[1]);
-    if (t > 0 && t <= SUM_MAX)
-        sum = (int)t;
-    else {
+    const long long t1 = atoll(argv[1]), t2 = atoll(argv[2]);
+    if (t1 <= 0 || t1 > SUM_MAX) {
         fprintf(stderr, "Argument 1 out of range: 0 < sum <= %d\n", SUM_MAX);
         return 2;
     }
-    t = atoll(argv[2]);
-    if (t > 0 && t <= TAKE_MAX)
-        take = (int)t;
-    else {
+    if (t2 <= 0 || t2 > TAKE_MAX) {
         fprintf(stderr, "Argument 2 out of range: 0 < summands <= %d\n", TAKE_MAX);
         return 3;
     }
-    printf("Find all combinations of %d distinct tetrahedral numbers that sum to %d\n", take, sum);
+    const int sum = (int)t1, take = (int)t2;
+    printf("Find all combinations of %d distinct tetrahedral numbers that sum to %d:\n", take, sum);
     printf("------------------------------------------------------------------------------------------\n");
 
-    // Precompute the first N tetrahedral numbers
+    // Precompute the first N tetrahedral numbers to choose from.
     const int N = (int)(ceil(cbrt(sum * 6)));
     int *tetra = malloc((size_t)N * sizeof *tetra);
     for (int i = 0; i < N; ++i)
-        tetra[i] = tetracalc(i + 1);  // do not use T(0)=0
+        tetra[i] = tetracalc(i);
 
     int *index = NULL, solutions = 0;
     while ((index = combinations(N, take))) {
-        int s = 0;
+        // Skip first tetrahedral number T(0)=0 because a zero term is no term.
+        if (!index[0])
+            continue;
+
+        // Sum of current combination.
+        int combosum = 0;
         for (int i = 0; i < take; ++i)
-            s += tetra[index[i]];
-        if (s == sum) {
-            printf("%u: T(%d)", ++solutions, index[0] + 1);  // adjust index for skipping T(0)
+            combosum += tetra[index[i]];
+
+        // Is this a solution?
+        if (combosum == sum) {
+            printf("%u: T(%d)", ++solutions, index[0]);
             for (int i = 1; i < take; ++i)
-                printf("+T(%u)", index[i] + 1);  // adjust index for skipping T(0)
+                printf("+T(%u)", index[i]);
             printf(" = %u", tetra[index[0]]);
             for (int i = 1; i < take; ++i)
                 printf("+%u", tetra[index[i]]);
@@ -76,7 +80,7 @@ int main(int argc, char *argv[])
         }
     }
     printf("------------------------------------------------------------------------------------------\n");
-    printf("Found %d different combinations of %d distinct tetrahedral numbers that sum to %d\n", solutions, take, sum);
+    printf("Found %d different combinations of %d distinct tetrahedral numbers that sum to %d.\n", solutions, take, sum);
     free(tetra);
     return 0;
 }
