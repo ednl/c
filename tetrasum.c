@@ -14,6 +14,16 @@
  * Utrecht, Netherlands
  * 2024-05-20
  * https://github.com/ednl/c/blob/master/tetrasum.c
+ *
+ * Numberphile video is out now: https://www.youtube.com/watch?v=CK3_zarXkw0
+ * Turns out this was in reference to one of Pollock's conjectures, see
+ * https://en.wikipedia.org/wiki/Pollock%27s_conjectures and 343867 is thought
+ * to be the last (largest) sum that needs five tetrahedral numbers. But they
+ * don't have to be distinct! E.g. 17 is the first (smallest) that needs more
+ * than four: 17 = 10 + 4 + 1 + 1 + 1.
+ *
+ * So unfortunately this program does not answer Brady's question because it
+ * misses solutions with duplicate tetrahedral numbers.
  ******************************************************************************/
 
 #include <stdio.h>
