@@ -3,24 +3,33 @@
  * This is my multi-threaded solution that finds 322 different combinations of
  * 5 tetrahedral numbers (277 all unique, 45 with duplicates).
  *
- * Compile: clang -std=gnu17 -Ofast -o tetrasum tetrasum.c
- * Run: ./tetrasum 343866     : show sums with up to 4 terms, and summary
- *  or: ./tetrasum -v 343867  : show everything (verbose)
- *  or: ./tetrasum -q 343868  : only show no. of solutions (quiet)
+ * Compile:
+ *   Mac: clang -std=gnu17 -Ofast -march=native -Wall -Wextra -o tetrasum tetrasum.c
+ *   Linux: gcc -std=gnu17 -Ofast -march=native -Wall -Wextra -o tetrasum tetrasum.c -lm -lpthread
  *
- * E. Dronkert
- * Utrecht, Netherlands
- * https://github.com/ednl/c/blob/master/tetrasum.c
+ * Usage: tetrasum [-q|-s] [target]
+ *   default target=343867, show all sums with up to 5 terms, full summary
+ * Example: tetrasum -q 1234567
+ *   (quiet) show sums with up to 4 terms, full summary
+ * Example: tetrasum -s 10000001
+ *   (silent) only show terse summary with no. of sums per term count
  *
- * 2024-05-20 v1  First try with unique combinations.
- * 2024-05-23 v2  Now as requested with duplicates, and threads.
+ * Made by:
+ *   E. Dronkert
+ *   Utrecht, Netherlands
+ *   https://github.com/ednl/c/blob/master/tetrasum.c
  *
+ * Versions:
+ *   2024-05-20 v1: First try with unique combinations.
+ *   2024-05-23 v2: Now as requested with duplicates, and threads.
+ *
+ * Extra info:
  * Numberphile video is out now: https://www.youtube.com/watch?v=CK3_zarXkw0
  * Turns out this was in reference to one of Pollock's conjectures, see
  * https://en.wikipedia.org/wiki/Pollock%27s_conjectures and 343867 is thought
  * to be the last (largest) sum that needs five tetrahedral numbers. But they
  * don't have to be distinct! E.g. 17 is the first (smallest) that needs more
- * than four: 17 = 10 + 4 + 1 + 1 + 1.
+ * than four: 17 = 1 + 1 + 1 + 4 + 10.
  ******************************************************************************/
 
 #if __APPLE__
