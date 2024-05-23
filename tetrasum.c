@@ -23,6 +23,12 @@
  * than four: 17 = 10 + 4 + 1 + 1 + 1.
  ******************************************************************************/
 
+#if __APPLE__
+    #include <sys/sysctl.h>  // sysctlbyname
+#elif __linux__
+    #define _GNU_SOURCE  // must come before all includes
+    #include <sched.h>   // sched_getaffinity
+#endif
 #include <stdio.h>
 #include <stdlib.h>    // malloc, free
 #include <math.h>      // cbrt, floor
@@ -30,12 +36,6 @@
 #include <inttypes.h>  // PRIu32
 #include <string.h>    // strcmp
 #include <pthread.h>   // pthread_create, pthread_join
-#if __APPLE__
-    #include <sys/sysctl.h>  // sysctlbyname
-#elif __linux__
-    #define _GNU_SOURCE
-    #include <sched.h>  // sched_getaffinity
-#endif
 
 #define MAXTHREADS 32
 static uint32_t threads, target, N, total, dup, part[5];
