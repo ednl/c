@@ -4,9 +4,9 @@
  * 5 tetrahedral numbers (277 all unique, 45 with duplicates).
  *
  * Compile: clang -std=gnu17 -Ofast -o tetrasum tetrasum.c
- * Run: ./tetrasum 343867     : show sums with up to 4 terms, and summary
+ * Run: ./tetrasum 343866     : show sums with up to 4 terms, and summary
  *  or: ./tetrasum -v 343867  : show everything (verbose)
- *  or: ./tetrasum -q 343867  : only show no. of solutions (quiet)
+ *  or: ./tetrasum -q 343868  : only show no. of solutions (quiet)
  *
  * E. Dronkert
  * Utrecht, Netherlands
