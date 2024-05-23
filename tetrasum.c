@@ -29,13 +29,12 @@
 #include <stdint.h>    // uint32_t, UINT32_MAX
 #include <inttypes.h>  // PRIu32
 #include <string.h>    // strcmp
+#include <pthread.h>   // pthread_create, pthread_join
 #if __APPLE__
     #include <sys/sysctl.h>  // sysctlbyname
-    #include <pthread.h>     // pthread_create, pthread_join
 #elif __linux__
     #define _GNU_SOURCE
     #include <sched.h>  // sched_getaffinity
-    // TODO: use threads on Linux
 #endif
 
 #define MAXTHREADS 32
@@ -197,16 +196,12 @@ int main(int argc, char *argv[])
 
     // Launch parallel threads.
     threads = 0;
-#if __APPLE__
     for (int i = 0, res = 0; !res && i < cores; ++i, ++threads) {
         arg[i] = (uint32_t)(i + 1);
         res = pthread_create(&tid[i], NULL, loop, &arg[i]);
     }
     for (uint32_t i = 0; i < threads; ++i)
         pthread_join(tid[i], NULL);
-#elif __linux__
-    // TODO: use threads on Linux
-#endif
 
     // Single-threaded backup if no threads.
     if (!threads) {
