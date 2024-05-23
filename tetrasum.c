@@ -211,7 +211,7 @@ int main(int argc, char *argv[])
         usage(progname);  // exit with failure
     if (argc == 1) {
         const long long tmp = atoll(argv[0]);
-        if (tmp > 0 && tmp <= UINT_MAX)
+        if (tmp > 0 && tmp <= UINT32_MAX)
             target = (uint32_t)tmp;
         else
             usage(progname);  // exit with failure
