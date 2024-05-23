@@ -65,8 +65,9 @@ static uint32_t target = DEFTARGET;
 // Array of tetrahedral numbers [0,1,4,10,20,35,...]
 static uint32_t *tetrahedral;
 
-static int threads, tetracount, duplicates;
-static int summands[MAXSUMMANDS];  // a 'summand' is a term in a sum
+static int threads, tetracount;
+static _Atomic int duplicates;
+static _Atomic int summands[MAXSUMMANDS];  // a 'summand' is a term in a sum
 static Verbosity verbosity = NORMAL;
 
 // Help
@@ -95,6 +96,8 @@ static int coresavail(const int lo, const int hi)
         CPU_ZERO(&set);
         sched_getaffinity(0, sizeof set, &set);
         n = CPU_COUNT(&set);
+    #elif _WIN32
++       n = atoi(getenv("NUMBER_OF_PROCESSORS") ?: "1");
     #endif
     return n < lo ? lo : (n > hi ? hi : n);
 }
