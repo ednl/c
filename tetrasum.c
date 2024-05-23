@@ -217,7 +217,7 @@ int main(int argc, char *argv[])
 
     // Summary
     if (verbose) {
-        if ((verbose == 2 && total) || part[0] + part[1] + part[2] + part[3])
+        if ((verbose == 2 && total) || part[0] || part[1] || part[2] || part[3])
             printf("\n");
         printf("Target          : %"PRIu32"\n", target);
         printf("Sums found      : %"PRIu32"\n", total);
