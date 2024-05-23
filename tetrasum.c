@@ -41,7 +41,7 @@
 #define MAXTHREADS 32
 static uint32_t threads, target, N, total, dup, part[5];
 static uint32_t *tetra;
-static uint8_t verbose = 1;
+static uint8_t verbose = 2;
 
 // How many CPU cores available to this program?
 static int coresavail(const int min, const int max)
@@ -163,12 +163,15 @@ int main(int argc, char *argv[])
     // Command line arguments.
     if (argc > 1) {
         int argofs = 0;
-        // Verbosity level
+        // Verbosity level, default=2: show everything.
         if (!strcmp(argv[1], "-q") || !strcmp(argv[1], "--quiet")) {
-            verbose = 0;
+            // Show a complete summary but only sums with up to 4 terms.
+            verbose = 1;
             argofs = 1;
-        } else if (!strcmp(argv[1], "-v") || !strcmp(argv[1], "--verbose")) {
-            verbose = 2;
+        } else if (!strcmp(argv[1], "-s") || !strcmp(argv[1], "--silent")) {
+            // Only show the part counts, e.g. "0,0,1,0,9" =
+            //   found 10 different sums, 1 with 3 terms and 9 with 5.
+            verbose = 0;
             argofs = 1;
         }
         // Number under investigation
