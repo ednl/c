@@ -258,6 +258,8 @@ int main(int argc, char *argv[])
         if (!pthread_create(&tid[i], NULL, loop, &arg[i]))
             ++spawned;
     }
+
+    // Exit if not all threads could be created.
     if (spawned < threads) {
         fprintf(stderr, "Unable to launch %d of %d threads.\n", threads - spawned, threads);
         exit(EXIT_FAILURE);
