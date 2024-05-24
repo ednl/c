@@ -161,7 +161,8 @@ static void *loop(void *arg)
                     data->sums[2]++;  // found a sum with 3 terms
                     data->duplicates += i == j || j == k;
                     if (verbosity != SILENT)
-                        printf("%"PRIu32" + %"PRIu32" + %"PRIu32"\n", tetrahedral[i], tetrahedral[j], tetrahedral[k]);
+                        printf("%"PRIu32" + %"PRIu32" + %"PRIu32"\n",
+                            tetrahedral[i], tetrahedral[j], tetrahedral[k]);
                     break;
                 }
 
@@ -174,7 +175,8 @@ static void *loop(void *arg)
                         data->sums[3]++;  // found a sum with 4 terms
                         data->duplicates += i == j || j == k || k == l;
                         if (verbosity != SILENT)
-                            printf("%"PRIu32" + %"PRIu32" + %"PRIu32" + %"PRIu32"\n", tetrahedral[i], tetrahedral[j], tetrahedral[k], tetrahedral[l]);
+                            printf("%"PRIu32" + %"PRIu32" + %"PRIu32" + %"PRIu32"\n",
+                                tetrahedral[i], tetrahedral[j], tetrahedral[k], tetrahedral[l]);
                         break;
                     }
 
@@ -184,12 +186,13 @@ static void *loop(void *arg)
                         continue;  // 5th term is impossible, proceed with next 4th term
                     int m = (int)(floor(cbrt(residue) * CR6));  // cube root of res*6 is m or just below, where Te(m)=res
                     while (m < end && tetrahedral[m] < residue)
-                        ++m;
+                        ++m;  // might have been 1 or 2 too low, because of approximation and floor
                     if (m < end && tetrahedral[m] == residue) {
                         data->sums[4]++;  // found a sum with 5 terms
                         data->duplicates += i == j || j == k || k == l || l == m;
                         if (verbosity >= NORMAL)
-                            printf("%"PRIu32" + %"PRIu32" + %"PRIu32" + %"PRIu32" + %"PRIu32"\n", tetrahedral[i], tetrahedral[j], tetrahedral[k], tetrahedral[l], tetrahedral[m]);
+                            printf("%"PRIu32" + %"PRIu32" + %"PRIu32" + %"PRIu32" + %"PRIu32"\n",
+                                tetrahedral[i], tetrahedral[j], tetrahedral[k], tetrahedral[l], tetrahedral[m]);
                         continue;  // 5th term found, proceed with next 4th term
                     }
                 }
