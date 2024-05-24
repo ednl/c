@@ -23,6 +23,8 @@
  *   2024-05-20 v1: First try with unique combinations.
  *   2024-05-23 v2: Now as requested with duplicates, and threads.
  *   2024-05-23 v3: With fancy getopt processing, also works on Linux now.
+ *   2024-05-24 v4: Simpler without dynamic memory allocation, faster
+ *                  without binary search.
  *
  * Extra info:
  * Numberphile video is out now: https://www.youtube.com/watch?v=CK3_zarXkw0
