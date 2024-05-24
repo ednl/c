@@ -38,15 +38,15 @@
 #if __APPLE__
     #include <sys/sysctl.h>  // sysctlbyname
 #elif __linux__
-    #define _GNU_SOURCE  // must come before all includes
+    #define _GNU_SOURCE  // must come before all includes, not just sched.h
     #include <sched.h>   // sched_getaffinity
 #endif
-#include <stdio.h>
+#include <stdio.h>     // printf, fprintf
 #include <stdlib.h>    // atoll, atoi, exit, EXIT_FAILURE
 #include <math.h>      // cbrt, floor
 #include <stdint.h>    // uint32_t, UINT32_MAX
 #include <inttypes.h>  // PRIu32
-#include <unistd.h>    // getopt
+#include <unistd.h>    // getopt, opterr, optind
 #include <pthread.h>   // pthread_create, pthread_join
 
 // Pollock's conjecture: all positive whole numbers are sums
@@ -182,7 +182,7 @@ static void *loop(void *arg)
                     uint32_t residue = target - partial4;
                     if (residue < tetrahedral[l] || residue > tetrahedral[end - 1])
                         continue;  // 5th term is impossible, proceed with next 4th term
-                    int m = (int)(floor(cbrt(residue) * CR6));
+                    int m = (int)(floor(cbrt(residue) * CR6));  // cube root of res*6 is m or just below, where Te(m)=res
                     while (m < end && tetrahedral[m] < residue)
                         ++m;
                     if (m < end && tetrahedral[m] == residue) {
