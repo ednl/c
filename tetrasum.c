@@ -40,40 +40,50 @@
     #include <sched.h>   // sched_getaffinity
 #endif
 #include <stdio.h>
-#include <stdlib.h>    // malloc, free
+#include <stdlib.h>    // atoll, atoi, exit, EXIT_FAILURE
 #include <math.h>      // cbrt, floor
 #include <stdint.h>    // uint32_t, UINT32_MAX
 #include <inttypes.h>  // PRIu32
-#include <string.h>    // strcmp
 #include <unistd.h>    // getopt
 #include <pthread.h>   // pthread_create, pthread_join
-
-#define DEFTARGET   343867
-#define MAXTHREADS  32
-#define MAXSUMMANDS 5
-
-typedef enum verbosity {
-    SILENT, QUIET, NORMAL
-} Verbosity;
-
-// Local thread variables that will be returned.
-typedef struct result {
-    int summands[MAXSUMMANDS];  // a 'summand' is a term in a sum
-    int duplicates;
-} Result;
 
 // Pollock's conjecture: all positive whole numbers are sums
 // of at most 5 tetrahedral numbers (duplicates allowed).
 // First number that requires more than 4 terms is 17.
 // Last number that requires more than 4 terms is probably 343867.
+#define DEFTARGET   343867
+#define MAXSUMMANDS 5
+
+// Last tetrahedral number to fit in uint32_t is Te(2952), Te(2953) overflows.
+// Te(2952)=4291795704 < 2^32
+// Te(2953)=4296157285 > 2^32
+#define TETRACOUNT 2953
+
+#define MAXTHREADS 32  // arbitrary limit
+#define CR6 1.8171205928321397  // cube root of 6
+
+// Large numbers have many tetrahedral sums with 5 terms.
+// Use command line option -q (=quiet) to not print sums with 5 terms.
+// Use command line option -s (=silent) to not print any sums.
+typedef enum verbosity {
+    SILENT, QUIET, NORMAL
+} Verbosity;
+
+// Data going in and out of a thread.
+typedef struct data {
+    int start, end, skip;   // loop params going in
+    int sums[MAXSUMMANDS];  // how many sums per term count
+    int duplicates;         // how many sums have duplicate terms
+} Data;
+
+// Find tetrahedral sums for this number.
 static uint32_t target = DEFTARGET;
 
-// Array of tetrahedral numbers [0,1,4,10,20,35,...].
-// Read-only after init, so no atomicity needed.
-static uint32_t *tetrahedral;
+// Array with room for all 32-bit tetrahedral numbers [0,1,4,10,...,4291795704]
+// but only filled until Te(N) <= target with N to be determined.
+static uint32_t tetrahedral[TETRACOUNT];
 
-// Read-only after init, so no atomicity needed.
-static int threads, tetracount;
+// All globals are read-only after init, so no atomicity needed.
 static Verbosity verbosity = NORMAL;
 
 // Help text.
@@ -111,52 +121,56 @@ static int coresavail(const int lo, const int hi)
 // Parallel execution in separate threads.
 static void *loop(void *arg)
 {
-    const int start = *(int *)arg;
-    Result *res = calloc(1, sizeof *res);
+    Data *data = arg;
+
+    // Local const copies might be faster?
+    const int start = data->start;
+    const int end   = data->end;
+    const int skip  = data->skip;
 
     // First term
-    for (int i = start; i < tetracount; i += threads) {
+    for (int i = start; i < end; i += skip) {
         uint32_t partial1 = tetrahedral[i];  // partial sum with 1 term
         if (partial1 == target) {
-            res->summands[0]++;  // found a sum with 1 term (i.e. target is tetrahedral)
+            data->sums[0]++;  // found a sum with 1 term (i.e. target is tetrahedral)
             if (verbosity != SILENT)
                 printf("%"PRIu32"\n", tetrahedral[i]);
         }
 
         // Second term
-        for (int j = i; j < tetracount; ++j) {
+        for (int j = i; j < end; ++j) {
             uint32_t partial2 = partial1 + tetrahedral[j];  // partial sum with 2 terms
             if (partial2 < partial1 || partial2 > target)
                 break;  // overflow or impossible sum, proceed with next 1st term
             if (partial2 == target) {
-                res->summands[1]++;  // found a sum with 2 terms
-                res->duplicates += i == j;
+                data->sums[1]++;  // found a sum with 2 terms
+                data->duplicates += i == j;
                 if (verbosity != SILENT)
                     printf("%"PRIu32" + %"PRIu32"\n", tetrahedral[i], tetrahedral[j]);
                 break;
             }
 
             // Third term
-            for (int k = j; k < tetracount; ++k) {
+            for (int k = j; k < end; ++k) {
                 uint32_t partial3 = partial2 + tetrahedral[k];  // partial sum with 3 terms
                 if (partial3 < partial2 || partial3 > target)
                     break;  // overflow or impossible sum, proceed with next 2nd term
                 if (partial3 == target) {
-                    res->summands[2]++;  // found a sum with 3 terms
-                    res->duplicates += i == j || j == k;
+                    data->sums[2]++;  // found a sum with 3 terms
+                    data->duplicates += i == j || j == k;
                     if (verbosity != SILENT)
                         printf("%"PRIu32" + %"PRIu32" + %"PRIu32"\n", tetrahedral[i], tetrahedral[j], tetrahedral[k]);
                     break;
                 }
 
                 // Fourth term
-                for (int l = k; l < tetracount; ++l) {
+                for (int l = k; l < end; ++l) {
                     uint32_t partial4 = partial3 + tetrahedral[l];  // partial sum with 4 terms
                     if (partial4 < partial3 || partial4 > target)
                         break;  // overflow or impossible sum, proceed with next 3rd term
                     if (partial4 == target) {
-                        res->summands[3]++;  // found a sum with 4 terms
-                        res->duplicates += i == j || j == k || k == l;
+                        data->sums[3]++;  // found a sum with 4 terms
+                        data->duplicates += i == j || j == k || k == l;
                         if (verbosity != SILENT)
                             printf("%"PRIu32" + %"PRIu32" + %"PRIu32" + %"PRIu32"\n", tetrahedral[i], tetrahedral[j], tetrahedral[k], tetrahedral[l]);
                         break;
@@ -164,40 +178,23 @@ static void *loop(void *arg)
 
                     // To find a sum with 5 terms, residue must be a tetrahedral number.
                     uint32_t residue = target - partial4;
-                    if (residue < tetrahedral[l] || residue > tetrahedral[tetracount - 1])
+                    if (residue < tetrahedral[l] || residue > tetrahedral[end - 1])
                         continue;  // 5th term is impossible, proceed with next 4th term
-
-                    // Check edge cases.
-                    if (residue == tetrahedral[l] || residue == tetrahedral[tetracount - 1]) {
-                        int m = residue == tetrahedral[l] ? l : tetracount - 1;
-                        res->summands[4]++;  // found a sum with 5 terms
-                        res->duplicates += i == j || j == k || k == l || l == m;
-                        if (verbosity == NORMAL)
+                    int m = (int)(floor(cbrt(residue) * CR6));
+                    while (m < end && tetrahedral[m] < residue)
+                        ++m;
+                    if (m < end && tetrahedral[m] == residue) {
+                        data->sums[4]++;  // found a sum with 5 terms
+                        data->duplicates += i == j || j == k || k == l || l == m;
+                        if (verbosity >= NORMAL)
                             printf("%"PRIu32" + %"PRIu32" + %"PRIu32" + %"PRIu32" + %"PRIu32"\n", tetrahedral[i], tetrahedral[j], tetrahedral[k], tetrahedral[l], tetrahedral[m]);
                         continue;  // 5th term found, proceed with next 4th term
-                    }
-
-                    // Binary search for 5th term.
-                    int lo = l, hi = tetracount - 1, m;
-                    while (lo < hi) {
-                        m = ((lo + 1) >> 1) + (hi >> 1);  // index in the middle
-                        if (m == lo || m == hi)
-                            break;  // 5th term not found, proceed with next 4th term
-                        if      (tetrahedral[m] < residue) lo = m;
-                        else if (tetrahedral[m] > residue) hi = m;
-                        else {
-                            res->summands[4]++;  // found a sum with 5 terms
-                            res->duplicates += i == j || j == k || k == l || l == m;
-                            if (verbosity == NORMAL)
-                                printf("%"PRIu32" + %"PRIu32" + %"PRIu32" + %"PRIu32" + %"PRIu32"\n", tetrahedral[i], tetrahedral[j], tetrahedral[k], tetrahedral[l], tetrahedral[m]);
-                            break;  // 5th term found, proceed with next 4th term
-                        };
                     }
                 }
             }
         }
     }
-    return res;
+    return NULL;
 }
 
 int main(int argc, char *argv[])
@@ -233,67 +230,63 @@ int main(int argc, char *argv[])
     const long double r2 = sqrtl(3) / 9;
     const long double r = sqrtl((r1 + r2)) * sqrtl((r1 - r2));
     const long double root = cbrtl(r1 + r) + cbrtl(r1 - r);
-    tetracount = 1 + (int)(floorl(root));  // might be 1 too high
+    int tetracount = 1 + (int)(floorl(root));  // might be 1 too high
+    if (tetracount > TETRACOUNT)
+        tetracount = TETRACOUNT;
 
     // Make array of tetrahedral numbers to choose from.
-    tetrahedral = malloc((size_t)tetracount * sizeof *tetrahedral);
     tetrahedral[0] = 0;  // Te(0)=0
     tetrahedral[1] = 1;  // Te(1)=1
     for (int n = 2; n < tetracount; ++n)
         tetrahedral[n] = tetrahedral[n - 1] - tetrahedral[n - 2] + tetrahedral[n - 1] + (uint32_t)n;  // recursive relation
-    while (tetracount > 1 && (tetrahedral[tetracount - 1] > target || tetrahedral[tetracount - 1] < tetrahedral[tetracount - 2]))
-        --tetracount;  // adjust for too many, or for overflow
+    while (tetracount && tetrahedral[tetracount - 1] > target)
+        --tetracount;  // adjust for too many
 
     // Launch parallel threads.
-    threads = coresavail(1, MAXTHREADS);
+    const int threads = coresavail(1, MAXTHREADS);
     pthread_t tid[MAXTHREADS];  // thread IDs
-    int arg[MAXTHREADS];  // thread arguments
-    for (int i = 0, try = 0; i < threads && try < 100; ++try) {
-        arg[i] = i + 1;  // thread 0 starts with Te(1), thread 1 with Te(2), etc.
+    Data arg[MAXTHREADS];  // thread arguments going in and out
+    int spawned = 0;
+    for (int i = 0; i < threads; ++i) {
+        arg[i] = (Data){
+            .start = i + 1,  // thread 0 starts with Te(1), thread 1 with Te(2), etc.
+            .end = tetracount,
+            .skip = threads
+        };  // output vars init to zero
         if (!pthread_create(&tid[i], NULL, loop, &arg[i]))
-            ++i;
+            ++spawned;
+    }
+    if (spawned < threads) {
+        fprintf(stderr, "Unable to launch %d of %d threads.\n", threads - spawned, threads);
+        exit(EXIT_FAILURE);
     }
 
-    // Collate results.
-    Result result = {0};
-    void *res;
-    if (threads) {
-        // Wait for all threads to finish.
-        for (int i = 0; i < threads; ++i)
-            if (!pthread_join(tid[i], &res)) {
-                Result *r = res;
-                for (int i = 0; i < MAXSUMMANDS; ++i)
-                    result.summands[i] += r->summands[i];
-                result.duplicates += r->duplicates;
-                free(r);
-            }
-    } else {
-        // Run a single thread manually.
-        threads = 1;
-        arg[0] = 1;
-        Result *r = loop(&arg[0]);
-        for (int i = 0; i < MAXSUMMANDS; ++i)
-            result.summands[i] = r->summands[i];
-        result.duplicates = r->duplicates;
-        free(r);
+    // Wait for all threads to finish.
+    for (int i = 0; i < threads; ++i)
+        pthread_join(tid[i], NULL);
+
+    // Collate data from all threads into first data record arg[0].
+    for (int i = 1; i < threads; ++i) {
+        for (int j = 0; j < MAXSUMMANDS; ++j)
+            arg[0].sums[j] += arg[i].sums[j];
+        arg[0].duplicates += arg[i].duplicates;
     }
 
     // Summary
     if (verbosity != SILENT) {
         int total = 0;
         for (int i = 0; i < MAXSUMMANDS; ++i)
-            total += result.summands[i];
-        if (total > result.summands[4] || (verbosity == NORMAL && total))
+            total += arg[0].sums[i];
+        if (total > arg[0].sums[4] || (verbosity >= NORMAL && total))
             printf("\n");
         printf("Target          : %"PRIu32"\n", target);
         printf("Sums found      : %d\n", total);
-        printf("All distinct    : %d\n", total - result.duplicates);
-        printf("With duplicates : %d\n", result.duplicates);
+        printf("All distinct    : %d\n", total - arg[0].duplicates);
+        printf("With duplicates : %d\n", arg[0].duplicates);
         printf("Terms 1,2,3,4,5 : ");
     }
     for (int i = 0; i < MAXSUMMANDS; ++i)
-        printf("%d%c", result.summands[i], i < MAXSUMMANDS - 1 ? ',' : '\n');
+        printf("%d%c", arg[0].sums[i], i < MAXSUMMANDS - 1 ? ',' : '\n');
 
-    free(tetrahedral);
     return 0;
 }
