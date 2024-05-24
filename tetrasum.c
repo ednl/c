@@ -57,13 +57,18 @@
 #define DEFTARGET   343867
 #define MAXSUMMANDS 5
 
-// Largest tetrahedral number to fit in uint32_t is Te(2952), Te(2953) overflows.
-// Te(2952)=4291795704 < 2^32
-// Te(2953)=4296157285 > 2^32
+// Largest tetrahedral number to fit in uint32_t is Te(2952)
+// Te(2952)=4291795704 < 2^32 < Te(2953)=4296157285
 #define TETRACOUNT 2953
 
-#define MAXTHREADS 32  // arbitrary limit, avoid dynamic allocation of arg array
-#define CR6 1.8171205928321397  // cube root of 6
+// Te(4801278)=18446741848412178987 < 2^64 < Te(4801279)=18446753374556197973
+// #define TETRACOUNT64 4801279
+
+// Arbitrary limit, avoid dynamic allocation of arg array
+#define MAXTHREADS 32
+
+// Cube root of 6
+#define CR6 1.8171205928321397
 
 // Large numbers have many tetrahedral sums with 5 terms.
 // Use command line option -q (=quiet) to not print sums with 5 terms.
