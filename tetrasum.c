@@ -53,8 +53,8 @@
 #include <pthread.h>   // pthread_create, pthread_join
 
 // Test two different algorithms for the innermost loop in each worker thread.
-// On an 11-year old iMac, binsearch is ~0.2 faster than cbrt for target=12345678
-// but it's hardly significant at 2.21 vs 2.38 s.
+// On an 11-year old iMac, binsearch is ~0.2 s faster than cbrt
+// when target=12345678, but it's hardly significant at 2.21 vs 2.38 s.
 #define BINSEARCH 0
 
 // Pollock's conjecture: all positive whole numbers are sums
