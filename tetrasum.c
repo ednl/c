@@ -24,8 +24,9 @@
  *   2024-05-20 v1: First try with unique combinations.
  *   2024-05-23 v2: Now as requested with duplicates, and threads.
  *   2024-05-23 v3: With fancy getopt processing, also works on Linux now.
- *   2024-05-24 v4: Simpler without dynamic memory allocation, faster
+ *   2024-05-24 v4: Simpler without dynamic memory allocation, faster(?)
  *                  without binary search.
+ *   2024-05-27 v5: better/simpler tetrahedral cube root approximation function
  *
  * Extra info:
  * Numberphile video is out now: https://www.youtube.com/watch?v=CK3_zarXkw0
@@ -47,13 +48,14 @@
 #include <math.h>      // cbrt, floor
 #include <stdint.h>    // uint32_t, UINT32_MAX
 #include <inttypes.h>  // PRIu32
+#include <stdbool.h>
 #include <unistd.h>    // getopt, opterr, optind
 #include <pthread.h>   // pthread_create, pthread_join
 
 // Test two different algorithms for the innermost loop in each worker thread.
 // On an 11-year old iMac, binsearch is ~0.2 faster than cbrt for target=12345678
 // but it's hardly significant at 2.21 vs 2.38 s.
-#define BINSEARCH 1
+#define BINSEARCH 0
 
 // Pollock's conjecture: all positive whole numbers are sums
 // of at most 5 tetrahedral numbers (duplicates allowed).
@@ -63,18 +65,21 @@
 #define MAXSUMMANDS 5
 
 // Largest tetrahedral number to fit in uint32_t is Te(2952)
-// Te(2952)=4291795704 < 2^32 < Te(2953)=4296157285
+// Te(2952)=4291795704 < 2^32 <= Te(2953)=4296157285
 #define TETRACOUNT 2953
 
 // Largest tetrahedral number to fit in uint64_t is Te(4801278)
-// Te(4801278)=18446741848412178987 < 2^64 < Te(4801279)=18446753374556197973
+// Te(4801278)=18446741848412178987 < 2^64 <= Te(4801279)=18446753374556197973
 // #define TETRACOUNT64 4801279
 
-// Arbitrary limit, avoid dynamic allocation of arg array
+// Arbitrary limit to avoid dynamic allocation of arg array
 #define MAXTHREADS 32
 
-// Cube root of 6
-#define CR6 1.8171205928321397
+// Cube root of 6 (double where DBL_DECIMAL_DIG=17)
+#define DBL_CR6  1.81712059283213966
+
+// Cube root of 6 (long double where LDBL_DECIMAL_DIG=21)
+// #define LDBL_CR6 1.817120592832139658909L
 
 // Large numbers have many tetrahedral sums with 5 terms.
 // Use command line option -q (=quiet) to not print sums with 5 terms.
@@ -130,6 +135,28 @@ static int coresavail(const int lo, const int hi)
 +       n = atoi(getenv("NUMBER_OF_PROCESSORS") ?: "1");
     #endif
     return n < lo ? lo : (n > hi ? hi : n);
+}
+
+// Approximation of tetrahedral root of x.
+// Return: index n (0 <= n <= 2953) where Te(n)=x only if x is tetrahedral, n+/-1 otherwise.
+static inline int tetraroot(const uint32_t x)
+{
+    return (int)(floor(cbrt(x) * DBL_CR6));
+}
+
+// Find tetrahedral index of x if x is tetrahedral, otherwise -1.
+static inline int tetraindex(const uint32_t x)
+{
+    const int n = tetraroot(x);
+    return n < TETRACOUNT && tetrahedral[n] == x ? n : -1;
+}
+
+// Find index of largest tetrahedral number that can be part of a sum towards x.
+// Return: index n (0 <= n <= 2952) where Te(n) <= x and Te(n+1) > x
+static inline int tetralast(const uint32_t x)
+{
+    const int n = tetraroot(x);
+    return n < TETRACOUNT ? (tetrahedral[n] > x ? n - 1 : n) : TETRACOUNT - 1;
 }
 
 // Parallel execution in separate threads.
@@ -241,11 +268,8 @@ static void *loop(void *arg)
                         }
                     }
                 #else
-                    // Cube root of residue*6 is m or just below m, where Te(m)=residue
-                    int m = (int)(floor(cbrt(residue) * CR6));
-                    while (m < end && tetrahedral[m] < residue)
-                        ++m;  // might have been 1 or 2 too low, because of approximation and floor()
-                    if (m < end && tetrahedral[m] == residue) {
+                    const int m = tetraindex(residue);
+                    if (m != -1) {
                         ++sums[4];  // found a sum with 5 terms
                         dups += i == j || j == k || k == l || l == m;
                         if (verbosity >= NORMAL)
@@ -292,41 +316,28 @@ int main(int argc, char *argv[])
             usage(progname);  // exit with failure
     }
 
-    // Tetrahedral root via Cardano's formula for 3rd-degree polynomials.
-    const long double r1 = (long double)target * 3;
-    const long double r2 = sqrtl(3) / 9;
-    const long double r = sqrtl((r1 + r2)) * sqrtl((r1 - r2));
-    const long double root = cbrtl(r1 + r) + cbrtl(r1 - r);
-    int tetracount = 1 + (int)(floorl(root));  // might be 1 too high
-    if (tetracount > TETRACOUNT)
-        tetracount = TETRACOUNT;
-
     // Make array of tetrahedral numbers to choose from.
+    const int tetracount = tetralast(target) + 1;
     tetrahedral[0] = 0;  // Te(0)=0
     tetrahedral[1] = 1;  // Te(1)=1
     for (int n = 2; n < tetracount; ++n)
-        tetrahedral[n] = tetrahedral[n - 1] - tetrahedral[n - 2] + tetrahedral[n - 1] + (uint32_t)n;  // recursive relation
-    while (tetracount && tetrahedral[tetracount - 1] > target)
-        --tetracount;  // adjust for too many
+        // recursive relation, avoid overflow
+        tetrahedral[n] = (tetrahedral[n - 1] - tetrahedral[n - 2]) + tetrahedral[n - 1] + (uint32_t)n;
 
     // Launch parallel threads.
     const int threads = coresavail(1, MAXTHREADS);
     pthread_t tid[MAXTHREADS];  // thread IDs
     Data arg[MAXTHREADS];  // thread arguments going in and out
-    int spawned = 0;
     for (int i = 0; i < threads; ++i) {
         arg[i] = (Data){
             .start = i + 1,  // thread 0 starts with Te(1), thread 1 with Te(2), etc.
             .end = tetracount,
             .step = threads
         };  // output vars init to zero
-        if (!pthread_create(&tid[i], NULL, loop, &arg[i]))
-            ++spawned;
-    }
-    if (spawned < threads) {
-        // Exit if not all threads could be created.
-        fprintf(stderr, "Unable to launch %d of %d threads.\n", threads - spawned, threads);
-        exit(EXIT_FAILURE);
+        if (pthread_create(&tid[i], NULL, loop, &arg[i])) {
+            fprintf(stderr, "Unable to launch thread %d of %d.\n", i + 1, threads);
+            exit(EXIT_FAILURE);
+        }
     }
 
     // Wait for all threads to finish.
