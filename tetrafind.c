@@ -103,7 +103,7 @@ static int coresavail(const int lo, const int hi)
         n = CPU_COUNT(&set);
     #elif _WIN32
         // Patch by /u/skeeto.
-+       n = atoi(getenv("NUMBER_OF_PROCESSORS") ?: "1");
+        n = atoi(getenv("NUMBER_OF_PROCESSORS") ?: "1");
     #endif
     return n < lo ? lo : (n > hi ? hi : n);
 }
