@@ -124,13 +124,14 @@ static void *loop(void *arg)
                     return NULL;  // impossible to find solutions from here
             }
             if (partial2 == localdata->target) {
-                *localdata->solutionfound = true;
+                // *localdata->solutionfound = true;
+                atomic_store_explicit(localdata->solutionfound, true, memory_order_relaxed);
                 return NULL;  // found tetrahedral sum with 2 terms
             }
 
             for (int k = j; k < localdata->end; ++k) {
                 // Check if solution found in other thread, or interrupted by Ctrl-C
-                if (*localdata->solutionfound || aborted)
+                if (atomic_load_explicit(localdata->solutionfound, memory_order_relaxed) || aborted)
                     return NULL;  // stop this thread
 
                 const uint64_t partial3 = partial2 + Te[k];  // partial sum with 3 terms
@@ -142,7 +143,8 @@ static void *loop(void *arg)
                         goto next_i;  // continue with next 1st term i ("break 2;")
                 }
                 if (partial3 == localdata->target) {
-                    *localdata->solutionfound = true;
+                    // *localdata->solutionfound = true;
+                    atomic_store_explicit(localdata->solutionfound, true, memory_order_relaxed);
                     return NULL;  // found tetrahedral sum with 3 terms
                 }
 
@@ -150,7 +152,8 @@ static void *loop(void *arg)
                 if (residue < Te[k] || residue > Te[localdata->end - 1])
                     continue;  // 4th term is impossible, proceed with next 3rd term
                 if (tetraindex(residue) != -1) {
-                    *localdata->solutionfound = true;
+                    // *localdata->solutionfound = true;
+                    atomic_store_explicit(localdata->solutionfound, true, memory_order_relaxed);
                     return NULL;  // found tetrahedral sum with 4 terms
                 }
             }
