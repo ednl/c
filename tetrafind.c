@@ -36,7 +36,7 @@
 #include <stdint.h>     // uint64_t, UINT64_MAX, UINT64_C
 #include <inttypes.h>   // PRIu64
 #include <stdbool.h>    // bool, true, false
-#include <stdatomic.h>  // atomic_bool
+#include <stdatomic.h>  // atomic_bool, atomic_load_explicit, atomic_store_explicit
 #include <signal.h>     // signal, sig_atomic_t
 
 // POSIX library, probably available on all three of Win/Mac/Linux
