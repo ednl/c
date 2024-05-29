@@ -46,7 +46,7 @@
 // of at most 5 tetrahedral numbers (duplicates allowed).
 // First number that requires more than 4 terms is 17.
 // Last number that requires more than 4 terms is believed to be 343867.
-#define FIRSTTARGET 0
+#define FIRSTTARGET 1
 
 // Largest tetrahedral number to fit in uint64_t is Te(4801278)
 // Te(4801278)=18446738006366306560 < 2^64 <= Te(4801279)=18446749532508725120
@@ -111,30 +111,39 @@ static void *loop(void *arg)
     ThreadData *localdata = arg;
 
     for (int i = localdata->begin; i < localdata->end; i += localdata->step) {
+        // Never a solution because of invariant: Te[N-1] < target.
         const uint64_t partial1 = Te[i];  // partial sum with 1 term
-        if (partial1 >= localdata->target) {
-            *localdata->solutionfound = partial1 == localdata->target;
-            return NULL;
-        }
 
         for (int j = i; j < localdata->end; ++j) {
             const uint64_t partial2 = partial1 + Te[j];  // partial sum with 2 terms
-            if (partial2 > localdata->target || partial2 < partial1)
-                break;
+            if (partial2 > localdata->target || partial2 < partial1) {
+                // Partial sum with 2 terms is too large or overflows.
+                if (j > i)
+                    break;  // continue with next 1st term i
+                else
+                    return NULL;  // impossible to find solutions from here
+            }
             if (partial2 == localdata->target) {
                 *localdata->solutionfound = true;
-                return NULL;
+                return NULL;  // found tetrahedral sum with 2 terms
             }
 
             for (int k = j; k < localdata->end; ++k) {
+                // Check if solution found in other thread, or interrupted by Ctrl-C
                 if (*localdata->solutionfound || aborted)
-                    return NULL;
-                const uint64_t partial3 = partial2 + Te[k];  // partial sum with 2 terms
-                if (partial3 > localdata->target || partial3 < partial2)
-                    break;
+                    return NULL;  // stop this thread
+
+                const uint64_t partial3 = partial2 + Te[k];  // partial sum with 3 terms
+                if (partial3 > localdata->target || partial3 < partial2) {
+                    // Partial sum with 3 terms is too large or overflows.
+                    if (k > j)
+                        break;  // continue with next 2nd term k
+                    else
+                        goto next_i;  // continue with next 1st term i ("break 2;")
+                }
                 if (partial3 == localdata->target) {
                     *localdata->solutionfound = true;
-                    return NULL;
+                    return NULL;  // found tetrahedral sum with 3 terms
                 }
 
                 const uint64_t residue = localdata->target - partial3;
@@ -142,10 +151,11 @@ static void *loop(void *arg)
                     continue;  // 4th term is impossible, proceed with next 3rd term
                 if (tetraindex(residue) != -1) {
                     *localdata->solutionfound = true;
-                    return NULL;
+                    return NULL;  // found tetrahedral sum with 4 terms
                 }
             }
         }
+        next_i:;
     }
     return NULL;
 }
@@ -165,9 +175,9 @@ int main(int argc, char *argv[])
     if (argc > 1) {
         char *end;
         const uint64_t a = strtoull(argv[1], &end, 0);
-        if (errno == ERANGE || *end != '\0') {
+        if (errno == ERANGE || *end != '\0' || !a) {
             errno = 0;
-            fprintf(stderr, "Invalid argument, must be a whole number N where 0 <= N < 2^64.\n");
+            fprintf(stderr, "Argument must be a positive whole number smaller than 2^64.\n");
             exit(EXIT_FAILURE);
         }
         target = a;
@@ -176,32 +186,34 @@ int main(int argc, char *argv[])
     // Initial array of N tetrahedral numbers to choose from.
     Te[0] = 0;
     Te[1] = 1;
-    int N = 2;
+    int N = 2;  // length currently used of the Te[] array
     for (; N < TE_SIZE && Te[N - 1] < target; ++N)
         settetra(N);
-    if (Te[N - 1] > target)
-        --N;  // now true: last number Te[N-1] <= target
+    if (Te[N - 1] >= target)
+        --N;
+    else if (N < TE_SIZE && !Te[N])
+        settetra(N);
+    // Invariant now true: Te[N-1] < target and Te[N] already set.
 
     // Catch Ctrl-C interrupt to report last target checked.
     signal(SIGINT, sighandler);
 
-    for (; !aborted; ++target) {
-        // Add tetrahedral number when necessary
-        if (N < TE_SIZE) {
-            if (!Te[N])
+    for (; target && !aborted; ++target) {
+        // Check invariant and fix when necessary.
+        if (N < TE_SIZE && Te[N] < target)
+            if (++N < TE_SIZE)
                 settetra(N);
-            if (Te[N] <= target)
-                ++N;
-        }
 
-        // Is target itself tetrahedral?
-        if (target == Te[N - 1])
-            continue;  // not interesting
+        // Is target itself tetrahedral? Check separately because it avoids much work
+        // and thread loops wouldn't catch it because of invariant T[N-1] < target.
+        // Also check next/previous target to quickly discard sums with 2 terms: 1+big.
+        if (target == Te[N] || target + 1 == Te[N] || target - 1 == Te[N - 1])
+            continue;  // uninteresting
 
-        // Launch parallel threads.
-        atomic_bool solutionfound = false;
+        // Launch parallel threads to search for any tetrahedral sum with up to 4 terms.
+        atomic_bool solutionfound = false;  // set flag to true in any thread to stop all threads
         pthread_t tid[MAXTHREADS];   // thread IDs
-        ThreadData arg[MAXTHREADS];  // thread arguments going in and out
+        ThreadData arg[MAXTHREADS];  // thread arguments
         for (int i = 0; i < threadcount; ++i) {
             arg[i] = (ThreadData){&solutionfound, target, i + 1, N, threadcount};
             if (pthread_create(&tid[i], NULL, loop, &arg[i])) {
@@ -210,16 +222,17 @@ int main(int argc, char *argv[])
             }
         }
 
-        // Wait for all threads to finish. Thread that finds a solution first,
-        // resets 'running', which will end the other threads.
+        // Wait for all threads to finish. Thread that finds solution first
+        // sets 'solutionfound', which will end other threads.
         for (int i = 0; i < threadcount; ++i)
             pthread_join(tid[i], NULL);
 
-        // Noteworthy: no solution means more than 4 terms required for tetrahedral sum.
+        // Interesting: no solution means more than 4 terms required for tetrahedral sum.
         if (!solutionfound && !aborted)
             printf("%"PRIu64"\n", target);
     }
 
+    // Show starting point for next run.
     if (aborted)
         printf("\nInterrupted while checking %"PRIu64"\n", target);
 
