@@ -39,7 +39,7 @@
 #include <stdatomic.h>  // atomic_bool
 #include <signal.h>     // signal, sig_atomic_t
 
-// POSIX library, probably available on all three of Win/Mac/Linux.
+// POSIX library, probably available on all three of Win/Mac/Linux
 #include <pthread.h>    // pthread_create, pthread_join
 
 // Pollock's conjecture: all positive whole numbers are sums
@@ -47,7 +47,6 @@
 // First number that requires more than 4 terms is 17.
 // Last number that requires more than 4 terms is believed to be 343867.
 #define FIRSTTARGET 0
-#define MAXSUMMANDS 4
 
 // Largest tetrahedral number to fit in uint64_t is Te(4801278)
 // Te(4801278)=18446738006366306560 < 2^64 <= Te(4801279)=18446749532508725120
@@ -59,31 +58,16 @@
 // Cube root of 6 (long double for LDBL_DECIMAL_DIG=21)
 #define LDBL_CR6 1.817120592832139658909L
 
-// Data going in and out of a thread.
+// Thread arguments
 typedef struct threaddata {
-    int threadnum;           // thread number [1..threadcount]
-    int index[MAXSUMMANDS];  // result: indices of Te numbers that sum to target
+    atomic_bool *solutionfound;
+    uint64_t target;
+    int begin, end, step;  // outer loop parameters
 } ThreadData;
-
-// Find first combination of at most 4 tetrahedral numbers that sum to target,
-// starting with FIRSTTARGET.
-static uint64_t target = FIRSTTARGET;
-
-// Number of threads is also step size of outermost loop in each thread.
-static int threadcount;
 
 // Array with room for all 64-bit tetrahedral numbers [0,1,4,10,...,18446738006366306560]
 // but only filled at init for all Te(N) <= target, with N to be determined per target.
 static uint64_t Te[TE_SIZE];
-
-// N is number of elements used of Te[] array, range [0..TE_SIZE].
-static int N;
-
-// Inter-thread communication:
-//  - is reset by 1 thread on first solution found
-//  - regularly checked by all threads
-//  - return from thread if no longer set
-static atomic_bool running;
 
 // Catch SIGINT for a clean exit with progress report.
 static volatile sig_atomic_t aborted;
@@ -108,17 +92,16 @@ static int coresavail(const int lo, const int hi)
     return n < lo ? lo : (n > hi ? hi : n);
 }
 
-// Tetrahedral root approximation of x. Suggestion by /u/purplefunctor.
-// Return: index n (0 <= n <= 4801279) where Te(n)=x only if x is tetrahedral, n+/-1 otherwise.
-static inline int tetraroot(const uint64_t x)
+// Next tetrahedral number at index n via recursive relation to avoid overflow.
+static inline void settetra(const int n)
 {
-    return (int)(floorl(cbrtl(x) * LDBL_CR6));
+    Te[n] = Te[n - 1] - Te[n - 2] + Te[n - 1] + (uint64_t)n;
 }
 
 // Find tetrahedral index of x if x is tetrahedral, otherwise -1.
 static inline int tetraindex(const uint64_t x)
 {
-    const int n = tetraroot(x);
+    const int n = (int)(floorl(cbrtl(x) * LDBL_CR6));  // 0 <= n <= 4801279
     return n < TE_SIZE && Te[n] == x ? n : -1;
 }
 
@@ -126,69 +109,45 @@ static inline int tetraindex(const uint64_t x)
 static void *loop(void *arg)
 {
     ThreadData *localdata = arg;
-    const int start = localdata->threadnum;  // thread number [1..threadcount]
 
-    // Maybe local const copies are faster than accessing shared (but read-only) globals?
-    const int end = N;  // current length of Te[] array
-    const int step = threadcount;  // from coresavail() at init
-
-    for (int i0 = start; i0 < end; i0 += step) {
-        const uint64_t partial0 = Te[i0];  // partial sum with 1 term
-        if (partial0 > target)
-            break;
-        if (partial0 == target && running && !aborted) {
-            running = false;
-            localdata->index[0] = i0;
+    for (int i = localdata->begin; i < localdata->end; i += localdata->step) {
+        const uint64_t partial1 = Te[i];  // partial sum with 1 term
+        if (partial1 >= localdata->target) {
+            *localdata->solutionfound = partial1 == localdata->target;
             return NULL;
         }
 
-        for (int i1 = i0; i1 < end; ++i1) {
-            const uint64_t partial1 = partial0 + Te[i1];  // partial sum with 2 terms
-            if (partial1 > target || partial1 < partial0)
+        for (int j = i; j < localdata->end; ++j) {
+            const uint64_t partial2 = partial1 + Te[j];  // partial sum with 2 terms
+            if (partial2 > localdata->target || partial2 < partial1)
                 break;
-            if (partial1 == target && running && !aborted) {
-                running = false;
-                localdata->index[0] = i0;
-                localdata->index[1] = i1;
+            if (partial2 == localdata->target) {
+                *localdata->solutionfound = true;
                 return NULL;
             }
 
-            for (int i2 = i1; i2 < end; ++i2) {
-                if (!running || aborted)
+            for (int k = j; k < localdata->end; ++k) {
+                if (*localdata->solutionfound || aborted)
                     return NULL;
-                const uint64_t partial2 = partial1 + Te[i2];  // partial sum with 2 terms
-                if (partial2 > target || partial2 < partial1)
+                const uint64_t partial3 = partial2 + Te[k];  // partial sum with 2 terms
+                if (partial3 > localdata->target || partial3 < partial2)
                     break;
-                if (partial2 == target && running && !aborted) {
-                    running = false;
-                    localdata->index[0] = i0;
-                    localdata->index[1] = i1;
-                    localdata->index[2] = i2;
+                if (partial3 == localdata->target) {
+                    *localdata->solutionfound = true;
                     return NULL;
                 }
 
-                const uint64_t residue = target - partial2;
-                if (residue < Te[i2] || residue > Te[end - 1])
+                const uint64_t residue = localdata->target - partial3;
+                if (residue < Te[k] || residue > Te[localdata->end - 1])
                     continue;  // 4th term is impossible, proceed with next 3rd term
-                const int i3 = tetraindex(residue);
-                if (i3 != -1 && running && !aborted) {
-                    running = false;
-                    localdata->index[0] = i0;
-                    localdata->index[1] = i1;
-                    localdata->index[2] = i2;
-                    localdata->index[3] = i3;
+                if (tetraindex(residue) != -1) {
+                    *localdata->solutionfound = true;
                     return NULL;
                 }
             }
         }
     }
     return NULL;
-}
-
-// Next tetrahedral number Te(n) via recursive relation to avoid overflow.
-static inline void settetra(const int n)
-{
-    Te[n] = Te[n - 1] - Te[n - 2] + Te[n - 1] + (uint64_t)n;
 }
 
 // Signal handler for SIGINT (Ctrl-C)
@@ -199,6 +158,10 @@ static void sighandler(int sig)
 
 int main(int argc, char *argv[])
 {
+    // Use as many threads as cores available.
+    const int threadcount = coresavail(1, MAXTHREADS);
+
+    uint64_t target = FIRSTTARGET;
     if (argc > 1) {
         char *end;
         const uint64_t a = strtoull(argv[1], &end, 0);
@@ -213,13 +176,11 @@ int main(int argc, char *argv[])
     // Initial array of N tetrahedral numbers to choose from.
     Te[0] = 0;
     Te[1] = 1;
-    for (N = 2; N < TE_SIZE && Te[N - 1] < target; ++N)
+    int N = 2;
+    for (; N < TE_SIZE && Te[N - 1] < target; ++N)
         settetra(N);
     if (Te[N - 1] > target)
         --N;  // now true: last number Te[N-1] <= target
-
-    // Use as many threads as cores available.
-    threadcount = coresavail(1, MAXTHREADS);
 
     // Catch Ctrl-C interrupt to report last target checked.
     signal(SIGINT, sighandler);
@@ -238,11 +199,11 @@ int main(int argc, char *argv[])
             continue;  // not interesting
 
         // Launch parallel threads.
+        atomic_bool solutionfound = false;
         pthread_t tid[MAXTHREADS];   // thread IDs
         ThreadData arg[MAXTHREADS];  // thread arguments going in and out
-        running = true;
         for (int i = 0; i < threadcount; ++i) {
-            arg[i] = (ThreadData){.threadnum = i + 1};  // output var .index[] inits to zeros
+            arg[i] = (ThreadData){&solutionfound, target, i + 1, N, threadcount};
             if (pthread_create(&tid[i], NULL, loop, &arg[i])) {
                 fprintf(stderr, "Unable to launch thread %d of %d.\n", i + 1, threadcount);
                 exit(EXIT_FAILURE);
@@ -254,16 +215,8 @@ int main(int argc, char *argv[])
         for (int i = 0; i < threadcount; ++i)
             pthread_join(tid[i], NULL);
 
-        // Result from one thread.
-        bool resultfound = false;
-        for (int i = 0; i < threadcount; ++i)
-            if (arg[i].index[0] > 0) {
-                resultfound = true;
-                break;
-            }
-
-        // Noteworthy: no result means more than 4 terms required for tetrahedral sum.
-        if (!resultfound && !aborted)
+        // Noteworthy: no solution means more than 4 terms required for tetrahedral sum.
+        if (!solutionfound && !aborted)
             printf("%"PRIu64"\n", target);
     }
 
