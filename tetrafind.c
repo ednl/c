@@ -198,16 +198,17 @@ int main(int argc, char *argv[])
     // Catch Ctrl-C interrupt to report last target checked.
     signal(SIGINT, sighandler);
 
-    for (; target && !aborted; ++target) {
+    for (; target && !aborted; ++target) {  // probably superfluous check for Ctrl-C, see below
         // Check invariant and fix when necessary.
         if (N < TE_SIZE && Te[N] < target)
             if (++N < TE_SIZE)
                 settetra(N);
 
-        // Is target itself tetrahedral? Check separately because it avoids much work
-        // and thread loops wouldn't catch it because of invariant T[N-1] < target.
-        // Also check next/previous target to quickly discard sums with 2 terms: 1+big.
-        if (target == Te[N] || target + 1 == Te[N] || target - 1 == Te[N - 1])
+        // Is target tetrahedral? If so, can only be Te[N]. Threads won't catch it
+        // because Te[N-1]<target, so must check here. Also check if near Te[N-1]
+        // to avoid much work when it would have solutions with 2-4 terms anyway:
+        //   x=1+Te, x=1+1+Te, x=1+1+1+Te, x=4+Te, x=1+4+Te, x=1+1+4+Te
+        if (target - Te[N - 1] <= 6 || (N < TE_SIZE && target == Te[N]))
             continue;  // uninteresting
 
         // Launch parallel threads to search for any tetrahedral sum with up to 4 terms.
@@ -227,8 +228,13 @@ int main(int argc, char *argv[])
         for (int i = 0; i < threadcount; ++i)
             pthread_join(tid[i], NULL);
 
+        // Most likely interrupted while busy in threads, so check after
+        // and don't go to next target before reporting.
+        if (aborted)
+            break;
+
         // Interesting: no solution means more than 4 terms required for tetrahedral sum.
-        if (!solutionfound && !aborted)
+        if (!solutionfound)
             printf("%"PRIu64"\n", target);
     }
 
