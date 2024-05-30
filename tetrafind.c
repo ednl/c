@@ -108,57 +108,53 @@ static inline int tetraindex(const uint64_t x)
 // Parallel execution in separate threads.
 static void *loop(void *arg)
 {
-    ThreadData *localdata = arg;
+    const ThreadData *const dat = arg;
+    atomic_bool *const found = dat->solutionfound;
+    const uint64_t target = dat->target;
+    const int end = dat->end;
+    const int step = dat->step;
 
-    for (int i = localdata->begin; i < localdata->end; i += localdata->step) {
+    for (int i = dat->begin; i < end; i += step) {
         // Never a solution because of invariant: Te[N-1] < target.
         const uint64_t partial1 = Te[i];  // partial sum with 1 term
 
-        for (int j = i; j < localdata->end; ++j) {
+        for (int j = i; j < end; ++j) {
             const uint64_t partial2 = partial1 + Te[j];  // partial sum with 2 terms
-            if (partial2 > localdata->target || partial2 < partial1) {
+            if (partial2 > target || partial2 < partial1) {
                 // Partial sum with 2 terms is too large or overflows.
                 if (j > i)
                     break;  // continue with next 1st term i
                 else
                     return NULL;  // impossible to find solutions from here
             }
-            if (partial2 == localdata->target) {
-                // *localdata->solutionfound = true;
-                atomic_store_explicit(localdata->solutionfound, true, memory_order_relaxed);
+            if (partial2 == target) {
+                atomic_store_explicit(found, true, memory_order_relaxed);
                 return NULL;  // found tetrahedral sum with 2 terms
             }
 
-            for (int k = j; k < localdata->end; ++k) {
+            for (int k = j; k < end; ++k) {
                 // Check if solution found in other thread, or interrupted by Ctrl-C
-                if (atomic_load_explicit(localdata->solutionfound, memory_order_relaxed) || aborted)
+                if (atomic_load_explicit(found, memory_order_relaxed) || aborted)
                     return NULL;  // stop this thread
 
                 const uint64_t partial3 = partial2 + Te[k];  // partial sum with 3 terms
-                if (partial3 > localdata->target || partial3 < partial2) {
+                if (partial3 > target || partial3 < partial2)
                     // Partial sum with 3 terms is too large or overflows.
-                    if (k > j)
-                        break;  // continue with next 2nd term k
-                    else
-                        goto next_i;  // continue with next 1st term i ("break 2;")
-                }
-                if (partial3 == localdata->target) {
-                    // *localdata->solutionfound = true;
-                    atomic_store_explicit(localdata->solutionfound, true, memory_order_relaxed);
+                    break;  // continue with next 2nd term j
+                if (partial3 == target) {
+                    atomic_store_explicit(found, true, memory_order_relaxed);
                     return NULL;  // found tetrahedral sum with 3 terms
                 }
 
-                const uint64_t residue = localdata->target - partial3;
-                if (residue < Te[k] || residue > Te[localdata->end - 1])
+                const uint64_t residue = target - partial3;
+                if (residue < Te[k] || residue > Te[end - 1])
                     continue;  // 4th term is impossible, proceed with next 3rd term
                 if (tetraindex(residue) != -1) {
-                    // *localdata->solutionfound = true;
-                    atomic_store_explicit(localdata->solutionfound, true, memory_order_relaxed);
+                    atomic_store_explicit(found, true, memory_order_relaxed);
                     return NULL;  // found tetrahedral sum with 4 terms
                 }
             }
         }
-        next_i:;
     }
     return NULL;
 }
@@ -185,6 +181,8 @@ int main(int argc, char *argv[])
         }
         target = a;
     }
+    printf("Searching for positive whole numbers that have tetrahedral sums\n"
+        "with more than four terms, starting from %"PRIu64":\n", target);
 
     // Initial array of N tetrahedral numbers to choose from.
     Te[0] = 0;
@@ -197,6 +195,11 @@ int main(int argc, char *argv[])
     else if (N < TE_SIZE && !Te[N])
         settetra(N);
     // Invariant now true: Te[N-1] < target and Te[N] already set.
+
+    // Count numbers whose tetrahedral sum requires more than 4 terms.
+    // From 17 to 343867, that's 241 numbers.
+    // Compare: https://oeis.org/A000797/b000797.txt
+    int require5 = 0;
 
     // Catch Ctrl-C interrupt to report last target checked.
     signal(SIGINT, sighandler);
@@ -219,7 +222,7 @@ int main(int argc, char *argv[])
         pthread_t tid[MAXTHREADS];   // thread IDs
         ThreadData arg[MAXTHREADS];  // thread arguments
         for (int i = 0; i < threadcount; ++i) {
-            arg[i] = (ThreadData){&solutionfound, target, i + 1, N, threadcount};
+            arg[i] = (ThreadData){ &solutionfound, target, i + 1, N, threadcount };
             if (pthread_create(&tid[i], NULL, loop, &arg[i])) {
                 fprintf(stderr, "Unable to launch thread %d of %d.\n", i + 1, threadcount);
                 exit(EXIT_FAILURE);
@@ -238,7 +241,7 @@ int main(int argc, char *argv[])
 
         // Interesting: no solution means more than 4 terms required for tetrahedral sum.
         if (!solutionfound)
-            printf("%"PRIu64"\n", target);
+            printf("%d %"PRIu64"\n", ++require5, target);
     }
 
     // Show starting point for next run.
