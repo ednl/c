@@ -1,13 +1,13 @@
 /******************************************************************************
  * Pollock conjectured that all positive whole numbers can be written as a sum
- * of at most 5 tetrahedral numbers (duplicates allowed). The first number that
- * requires at least 5 terms is 17 (1+1+1+4+10), the last one is believed to be
- * 343867 which has 322 unique tetrahedral sums of 5 terms (summands).
+ * of at most five tetrahedral numbers (duplicates allowed). The first number
+ * that requires at least five terms is 17 (= 1+1+1+4+10), the last one is
+ * "almost certainly" 343867 (multiple different sums exist).
  *
- * This program finds 64-bit integers that require more than four terms in
- * their tetrahedral sums. It starts at the number specified on the command
- * line, or else at 0. Stop the search by pressing Ctrl-C. The last number
- * checked will be printed.
+ * This program searches for 64-bit integers that require more than four terms
+ * in their tetrahedral sums. It starts at the number specified on the command
+ * line, or else at 1. Stop the search by pressing Ctrl-C. The last number
+ * checked will be reported.
  *
  * Compile:
  *   Mac: clang -std=gnu17 -Ofast -march=native -o tetrafind tetrafind.c
