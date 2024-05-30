@@ -10,9 +10,10 @@
  * checked will be printed.
  *
  * Compile:
- *   Mac: clang -std=gnu17 -Ofast -march=native -Wall -Wextra -o tetrafind tetrafind.c
- *   Linux: gcc -std=gnu17 -Ofast -march=native -Wall -Wextra -o tetrafind tetrafind.c -lm
- *   No errors found with: cc -g3 -fsanitize=thread,undefined tetrafind.c -lm
+ *   Mac: clang -std=gnu17 -Ofast -march=native -o tetrafind tetrafind.c
+ *   Linux: gcc -std=gnu17 -Ofast -march=native -o tetrafind tetrafind.c -lm
+ * No warnings or errors found with:
+ *   \clang -g3 -fsanitize=thread,undefined -Wall -Wextra tetrafind.c
  *
  * Made by:
  *   E. Dronkert
@@ -174,7 +175,7 @@ int main(int argc, char *argv[])
     if (argc > 1) {
         char *end;
         const uint64_t a = strtoull(argv[1], &end, 0);
-        if (errno == ERANGE || *end != '\0' || !a) {
+        if (errno == ERANGE || *end != '\0' || !a) {  // target can't be zero
             errno = 0;
             fprintf(stderr, "Argument must be a positive whole number smaller than 2^64.\n");
             exit(EXIT_FAILURE);
@@ -194,11 +195,10 @@ int main(int argc, char *argv[])
         --N;
     else if (N < TE_SIZE && !Te[N])
         settetra(N);
-    // Invariant now true: Te[N-1] < target and Te[N] already set.
+    // Invariant now true: N >= 1, Te[N-1] < target and Te[N] already set.
 
-    // Count numbers whose tetrahedral sum requires more than 4 terms.
-    // From 17 to 343867, that's 241 numbers.
-    // Compare: https://oeis.org/A000797/b000797.txt
+    // Count numbers whose tetrahedral sum requires more than 4 terms. From 17 to
+    // 343867, that's 241 numbers. Compare: https://oeis.org/A000797/b000797.txt
     int require5 = 0;
 
     // Catch Ctrl-C interrupt to report last target checked.
@@ -210,9 +210,10 @@ int main(int argc, char *argv[])
             if (++N < TE_SIZE)
                 settetra(N);
 
-        // Is target tetrahedral? If so, can only be Te[N]. Threads won't catch it
-        // because Te[N-1]<target, so must check here. Also check if near Te[N-1]
-        // to avoid much work when it would have solutions with 2-4 terms anyway:
+        // Is target tetrahedral? If so, can only be Te[N]. Threads won't catch
+        // this because Te[N-1]<target, so must check here. Also check if target
+        // is close to Te[N-1] to avoid much work when it would have solutions
+        // with 2-4 terms anyway:
         //   x=1+Te, x=1+1+Te, x=1+1+1+Te, x=4+Te, x=1+4+Te, x=1+1+4+Te
         if (target - Te[N - 1] <= 6 || (N < TE_SIZE && target == Te[N]))
             continue;  // uninteresting
@@ -230,11 +231,11 @@ int main(int argc, char *argv[])
         }
 
         // Wait for all threads to finish. Thread that finds solution first
-        // sets 'solutionfound', which will end other threads.
+        // sets 'solutionfound', which will end all other threads.
         for (int i = 0; i < threadcount; ++i)
             pthread_join(tid[i], NULL);
 
-        // Most likely interrupted while busy in threads, so check after
+        // Most likely interrupted while busy in threads, so check after joining
         // and don't go to next target before reporting.
         if (aborted)
             break;
