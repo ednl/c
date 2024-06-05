@@ -1,47 +1,44 @@
-// https://en.wikipedia.org/wiki/Kaprekar%27s_routine
-
 #include <stdio.h>
-#include <stdlib.h>
 #include <stdint.h>
 
 #define BASE 10
 #define LEN   4
 
-static int cmpbyte(const void *p, const void *q)
+// https://en.wikipedia.org/wiki/Kaprekar%27s_routine
+static uint32_t kaprekar(uint32_t x)
 {
-    const uint8_t a = *(const uint8_t *)p;
-    const uint8_t b = *(const uint8_t *)q;
-    if (a < b) return -1;
-    if (a > b) return  1;
-    return 0;
-}
-
-static uint32_t kap(uint32_t x)
-{
-    uint8_t d[LEN];
+    // Convert to array of digits
+    uint8_t a[LEN];
     for (int i = 0; i < LEN; ++i) {
-        d[i] = x % BASE;
+        a[i] = x % BASE;
         x /= BASE;
     }
-    qsort(d, LEN, sizeof *d, cmpbyte);
-    uint32_t a = 0, b = 0;
-    for (int i = 0; i < LEN; ++i) {
-        a = a * BASE + d[LEN - 1 - i];
-        b = b * BASE + d[i];
+    // Insertion sort
+    for (int i = 1, j; i < LEN; ++i) {
+        const uint8_t ins = a[i];
+        for (j = i; j && a[j - 1] > ins; --j)
+            a[j] = a[j - 1];
+        if (j != i)
+            a[j] = ins;
     }
-    return a - b;
+    // Convert to numbers with ascending and descending digits
+    uint32_t asc = 0, dsc = 0;
+    for (int i = 0, j = LEN - 1; i < LEN; ++i, --j) {
+        asc = asc * BASE + a[i];
+        dsc = dsc * BASE + a[j];
+    }
+    // Return positive difference
+    return dsc - asc;
 }
 
 int main(void)
 {
-    uint32_t prev, next, count;
     for (uint32_t n = 0; n <= 9999; ++n) {
         printf("%u", n);
-        next = n;
-        count = 0;
+        uint32_t prev, next = n, count = 0;
         while (1) {
             prev = next;
-            next = kap(prev);
+            next = kaprekar(prev);
             if (next != prev) {
                 ++count;
                 // printf(" %u", next);
