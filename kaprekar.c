@@ -1,21 +1,47 @@
 #include <stdio.h>
-#include <stdint.h>
+#include <stdlib.h>  // atoi
+#include <stdint.h>  // uint64_t
 // #include "startstoptimer.h"
+
+#define MINBASE  2
+#define MAXBASE 36
+#define MAXLEN  19  // 10^19 < 2^64
+#define MAXLOOP 64
 
 #define BASE 10
 #define LEN   4
 
-// https://en.wikipedia.org/wiki/Kaprekar%27s_routine
-static uint32_t kaprekar(uint32_t x)
+static const char *digitchar = "0123456789abcdefghijklmnopqrstuvwxyz";
+
+static void putnum(uint64_t x, const int base, const int len)
 {
-    // Convert to array of digits
-    uint8_t digit[LEN];
-    for (int i = 0; i < LEN; ++i) {
-        digit[i] = x % BASE;
-        x /= BASE;
+    // if (base < MINBASE || base > MAXBASE || len < 1 || len > MAXLEN)
+    //     return;
+    char s[MAXLEN];
+    int i = 0;
+    while (i < len && x) {
+        s[i++] = digitchar[x % base];
+        x /= base;
+    }
+    while (i < len)
+        s[i++] = '0';
+    while (i--)
+        putchar(s[i]);
+}
+
+// https://en.wikipedia.org/wiki/Kaprekar%27s_routine
+static uint64_t kaprekar(uint64_t x, const int base, const int len)
+{
+    // if (base < MINBASE || base > MAXBASE || len < 1 || len > MAXLEN)
+    //     return 0;
+    // Convert to array of digit values
+    uint8_t digit[MAXLEN] = {0};
+    for (int i = 0; i < len && x; ++i) {
+        digit[i] = x % base;
+        x /= base;
     }
     // Insertion sort
-    for (int i = 1, j; i < LEN; ++i) {
+    for (int i = 1, j; i < len; ++i) {
         const uint8_t ins = digit[i];
         for (j = i; j && digit[j - 1] > ins; --j)
             digit[j] = digit[j - 1];
@@ -23,28 +49,48 @@ static uint32_t kaprekar(uint32_t x)
             digit[j] = ins;
     }
     // Return positive difference
-    uint32_t diff = 0;
-    for (int i = 0, j = LEN - 1; i < LEN; ++i, --j)
-        diff = diff * BASE + digit[j] - digit[i];
+    uint64_t diff = 0;
+    for (int i = 0, j = len - 1; i < len; ++i, --j)
+        diff = diff * base + digit[j] - digit[i];
     return diff;
 }
 
-int main(void)
+int main(int argc, char *argv[])
 {
     // starttimer();
-    for (uint32_t n = 0; n <= 9999; ++n) {
-        printf("%0*u", LEN, n);
-        uint32_t next = n, count = 0;
+    int base = BASE;
+    int len = LEN;
+    if (argc > 1) {
+        int t = atoi(argv[1]);
+        if (t >= 1 && t <= MAXLEN)
+            len = t;
+    }
+    if (argc > 2) {
+        int t = atoi(argv[2]);
+        if (t >= MINBASE && t <= MAXBASE)
+            base = t;
+    }
+
+    uint64_t end = 1;
+    for (int i = 0; i < len; ++i)
+        end *= base;
+
+    for (uint64_t n = 0; n < end; ++n) {
+        putnum(n, base, len);
+        uint64_t next = n;
+        int count = 0;
         while (1) {
-            uint32_t prev = next;
-            next = kaprekar(prev);
+            uint64_t prev = next;
+            next = kaprekar(prev, base, len);
             if (next != prev) {
                 ++count;
-                printf(" %0*u", LEN, next);  // show intermediate numbers
+                // Show intermediate numbers
+                putchar(' ');
+                putnum(next, base, len);
             } else
                 break;
         }
-        printf(" %u\n", count);  // how many steps to loop of length 1
+        printf(" (%d,1)\n", count);  // how many steps to loop of length 1
     }
     // printf("Time: %.0f µs\n", stoptimer_us());
     return 0;
