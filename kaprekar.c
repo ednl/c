@@ -1,5 +1,6 @@
 #include <stdio.h>
 #include <stdint.h>
+// #include "startstoptimer.h"
 
 #define BASE 10
 #define LEN   4
@@ -8,44 +9,43 @@
 static uint32_t kaprekar(uint32_t x)
 {
     // Convert to array of digits
-    uint8_t a[LEN];
+    uint8_t digit[LEN];
     for (int i = 0; i < LEN; ++i) {
-        a[i] = x % BASE;
+        digit[i] = x % BASE;
         x /= BASE;
     }
     // Insertion sort
     for (int i = 1, j; i < LEN; ++i) {
-        const uint8_t ins = a[i];
-        for (j = i; j && a[j - 1] > ins; --j)
-            a[j] = a[j - 1];
+        const uint8_t ins = digit[i];
+        for (j = i; j && digit[j - 1] > ins; --j)
+            digit[j] = digit[j - 1];
         if (j != i)
-            a[j] = ins;
-    }
-    // Convert to numbers with ascending and descending digits
-    uint32_t asc = 0, dsc = 0;
-    for (int i = 0, j = LEN - 1; i < LEN; ++i, --j) {
-        asc = asc * BASE + a[i];
-        dsc = dsc * BASE + a[j];
+            digit[j] = ins;
     }
     // Return positive difference
-    return dsc - asc;
+    uint32_t diff = 0;
+    for (int i = 0, j = LEN - 1; i < LEN; ++i, --j)
+        diff = diff * BASE + digit[j] - digit[i];
+    return diff;
 }
 
 int main(void)
 {
+    // starttimer();
     for (uint32_t n = 0; n <= 9999; ++n) {
-        printf("%u", n);
-        uint32_t prev, next = n, count = 0;
+        printf("%0*u", LEN, n);
+        uint32_t next = n, count = 0;
         while (1) {
-            prev = next;
+            uint32_t prev = next;
             next = kaprekar(prev);
             if (next != prev) {
                 ++count;
-                // printf(" %u", next);
+                printf(" %0*u", LEN, next);  // show intermediate numbers
             } else
                 break;
         }
-        printf(" %u\n", count);
+        printf(" %u\n", count);  // how many steps to loop of length 1
     }
+    // printf("Time: %.0f µs\n", stoptimer_us());
     return 0;
 }
