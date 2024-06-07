@@ -5,30 +5,37 @@
 #include <unistd.h>       // getopt, opterr, optind
 #include <stdnoreturn.h>  // noreturn
 
-#define MINBASE    2  // binary
-#define MAXBASE   36  // 0-9,a-z
-#define MAXLEN    19  // 10^19 < 2^64
-#define MAXLOOP 1024  // gamble at a workable limit
+// Practical limits
+#define MINBASE     2  // binary
+#define MAXBASE    36  // 0-9,a-z
+#define MAXLEN     19  // 10^19 < 2^64
+
+// Guesses at workable limits
+#define MAXLOOP  1024
+#define MAXCYCLE 1024
 
 typedef enum verbosity {
     SILENT, QUIET, NORMAL, VERBOSE, DEBUG
 } Verbosity;
 
 typedef struct cycle {
-    struct cycle *prev, *next;
     int mu, lambda, count;
 } Cycle;
 
 static const char *digitchar = "0123456789abcdefghijklmnopqrstuvwxyz";
 static Verbosity verbosity = NORMAL;
+static uint64_t seq_x[MAXLOOP];  // tortoise
+static uint64_t seq_y[MAXLOOP];  // hare
+static Cycle cycle[MAXCYCLE];
 
-static void putnum(uint64_t x, const int base, const int len)
+// Output number in any base 2..36, padded with zeroes to length len.
+static void putnum(uint64_t n, const int base, const int len)
 {
     char s[MAXLEN];
     int i = 0;
-    while (i < len && x) {
-        s[i++] = digitchar[x % base];
-        x /= base;
+    while (i < len && n) {
+        s[i++] = digitchar[n % base];
+        n /= base;
     }
     while (i < len)
         s[i++] = '0';
@@ -36,16 +43,18 @@ static void putnum(uint64_t x, const int base, const int len)
         putchar(s[i]);
 }
 
+// Next number in Kaprekar sequence in any base 2..36 with fixed length including zeroes.
 // https://en.wikipedia.org/wiki/Kaprekar%27s_routine
 static uint64_t kaprekar(uint64_t x, const int base, const int len)
 {
-    // Convert to array of digit values
+    // Convert number to array of digit values.
     uint8_t digit[MAXLEN] = {0};
     for (int i = 0; i < len && x; ++i) {
         digit[i] = x % base;
         x /= base;
     }
-    // Insertion sort
+    // Sort digits in ascending order with insertion sort.
+    // https://en.wikipedia.org/wiki/Insertion_sort
     for (int i = 1, j; i < len; ++i) {
         const uint8_t ins = digit[i];
         for (j = i; j && digit[j - 1] > ins; --j)
@@ -53,13 +62,15 @@ static uint64_t kaprekar(uint64_t x, const int base, const int len)
         if (j != i)
             digit[j] = ins;
     }
-    // Return positive difference
+    // Return positive difference between numbers
+    // with digits in descending vs. ascending order.
     uint64_t diff = 0;
     for (int i = 0, j = len - 1; i < len; ++i, --j)
         diff = diff * base + digit[j] - digit[i];
     return diff;
 }
 
+// Explain how to use this program, and exit.
 static noreturn void usage(const char *const progname, const int exitcode)
 {
     if (verbosity > SILENT) {
