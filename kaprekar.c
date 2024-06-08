@@ -1,18 +1,23 @@
 #include <stdio.h>
 #include <stdlib.h>       // atoi, exit, EXIT_FAILURE
+#include <string.h>       // memmove
 #include <stdint.h>       // uint64_t
 #include <inttypes.h>     // PRIu64
 #include <unistd.h>       // getopt, opterr, optind
 #include <stdnoreturn.h>  // noreturn
 
 // Practical limits
-#define MINBASE     2  // binary
-#define MAXBASE    36  // 0-9,a-z
-#define MAXLEN     19  // 10^19 < 2^64
+#define MINBASE  2  // binary
+#define MAXBASE 36  // 0-9,a-z
+#define MAXLEN  19  // 10^19 < 2^64
 
 // Guesses at workable limits
 #define MAXLOOP  1024
 #define MAXCYCLE 1024
+
+// Defaults
+#define BASE 10
+#define LEN   4
 
 typedef enum verbosity {
     SILENT, QUIET, NORMAL, VERBOSE, DEBUG
@@ -24,9 +29,6 @@ typedef struct cycle {
 
 static const char *digitchar = "0123456789abcdefghijklmnopqrstuvwxyz";
 static Verbosity verbosity = NORMAL;
-static uint64_t seq_x[MAXLOOP];  // tortoise
-static uint64_t seq_y[MAXLOOP];  // hare
-static Cycle cycle[MAXCYCLE];
 
 // Output number in any base 2..36, padded with zeroes to length len.
 static void putnum(uint64_t n, const int base, const int len)
@@ -45,22 +47,22 @@ static void putnum(uint64_t n, const int base, const int len)
 
 // Next number in Kaprekar sequence in any base 2..36 with fixed length including zeroes.
 // https://en.wikipedia.org/wiki/Kaprekar%27s_routine
-static uint64_t kaprekar(uint64_t x, const int base, const int len)
+static uint64_t kaprekar(uint64_t n, const int base, const int len)
 {
     // Convert number to array of digit values.
     uint8_t digit[MAXLEN] = {0};
-    for (int i = 0; i < len && x; ++i) {
-        digit[i] = x % base;
-        x /= base;
+    for (int i = 0; i < len && n; ++i) {
+        digit[i] = n % base;
+        n /= base;
     }
     // Sort digits in ascending order with insertion sort.
     // https://en.wikipedia.org/wiki/Insertion_sort
     for (int i = 1, j; i < len; ++i) {
-        const uint8_t ins = digit[i];
-        for (j = i; j && digit[j - 1] > ins; --j)
+        const uint8_t insert = digit[i];
+        for (j = i; j && digit[j - 1] > insert; --j)
             digit[j] = digit[j - 1];
         if (j != i)
-            digit[j] = ins;
+            digit[j] = insert;
     }
     // Return positive difference between numbers
     // with digits in descending vs. ascending order.
@@ -73,8 +75,8 @@ static uint64_t kaprekar(uint64_t x, const int base, const int len)
 // Explain how to use this program, and exit.
 static noreturn void usage(const char *const progname, const int exitcode)
 {
-    if (verbosity > SILENT) {
-        fprintf(stderr, "Usage: %s [-sqvd] <base> <length>\n", progname);
+    if (verbosity != SILENT) {
+        fprintf(stderr, "Usage: %s [-sqvd] [base] [length]\n", progname);
         fprintf(stderr, "  %d <= base <= %d\n", MINBASE, MAXBASE);
         fprintf(stderr, "  1 <= length <= %d\n", MAXLEN);
         fprintf(stderr, "Options: s=silent, q=quiet, v=verbose, d=debug\n");
@@ -101,28 +103,29 @@ int main(int argc, char *argv[])
     argc -= optind;
     argv += optind;
 
-    if (argc != 2)
-        usage(progname, 2);
-    int base = atoi(argv[0]);
-    int len = atoi(argv[1]);
+    int base = argc > 0 ? atoi(argv[0]) : BASE;
+    int len  = argc > 1 ? atoi(argv[1]) : LEN;
     if (base < MINBASE || base > MAXBASE || len < 1 || len > MAXLEN)
-        usage(progname, 3);
+        usage(progname, 2);
 
     // Range = base^len
     uint64_t end = base;
     for (int i = 1; i < len; ++i)
         end *= base;
 
-    // Cycle *cycle = NULL;
+    Cycle cycle[MAXCYCLE];
+    int cyclecount = 0;
+
     for (uint64_t n = 0; n < end; ++n) {
         if (verbosity > SILENT)
             putnum(n, base, len);
 
         // https://en.wikipedia.org/wiki/Cycle_detection
+        // Init
         uint64_t x[MAXLOOP] = {n};  // tortoise: x0=n,x1=0,x2=0,x3=0,...
-        uint64_t y[MAXLOOP];  // hare: x0,x2,x4,x6,...
-        x[1] = kaprekar(n, base, len);
-        y[1] = kaprekar(x[1], base, len);
+        uint64_t y[MAXLOOP];        // hare: x0,x2,x4,x6,...
+        x[1] = kaprekar(n, base, len);     // x1=f(x0)
+        y[1] = kaprekar(x[1], base, len);  // x2=f(f(x0))
 
         // Find repetition
         int i = 1;  // current tortoise & hare index
@@ -132,7 +135,7 @@ int main(int argc, char *argv[])
             y[i] = kaprekar(kaprekar(y[i - 1], base, len), base, len);   // double step hare
         }
         if (x[i] != y[i]) {
-            if (verbosity > SILENT)
+            if (verbosity != SILENT)
                 printf("\n");
             if (verbosity == DEBUG)
                 fprintf(stderr, "n=%"PRIu64" base=%d len=%d i=%d\n", n, base, len, i);
@@ -171,9 +174,23 @@ int main(int argc, char *argv[])
         }
         int lambda = i - mu;  // loop length
 
-        // Cycle *c = cycle;
-        // while (c && (c->lambda < lambda || (c->lambda == lambda && c->mu < mu)) && c->next)
-        //     c = c->next;
+        if (cyclecount) {
+            i = 0;
+            while (i < cyclecount && (cycle[i].mu < mu || (cycle[i].mu == mu && cycle[i].lambda < lambda)))
+                ++i;
+            if (i < cyclecount) {
+                if (cycle[i].mu == mu && cycle[i].lambda == lambda)
+                    cycle[i].count++;
+                else {
+                    //TODO: insert new entry
+                    // memmove();
+                }
+            } else if (cyclecount < MAXCYCLE)
+                cycle[cyclecount++] = (Cycle){mu, lambda, 1};
+            else
+                ;  //TODO: handle error
+        } else
+            cycle[cyclecount++] = (Cycle){mu, lambda, 1};
 
         // Show startup and loop numbers
         if (verbosity >= VERBOSE)
