@@ -16,8 +16,8 @@
 #define MAXCYCLE 1024
 
 // Defaults
-#define BASE 10
-#define LEN   4
+#define BASE 10  // decimal
+#define LEN   4  // 0-9999
 
 typedef enum verbosity {
     SILENT, QUIET, NORMAL, VERBOSE, DEBUG
@@ -117,7 +117,7 @@ int main(int argc, char *argv[])
     int cyclecount = 0;
 
     for (uint64_t n = 0; n < end; ++n) {
-        if (verbosity > SILENT)
+        if (verbosity > QUIET)
             putnum(n, base, len);
 
         // https://en.wikipedia.org/wiki/Cycle_detection
@@ -135,7 +135,7 @@ int main(int argc, char *argv[])
             y[i] = kaprekar(kaprekar(y[i - 1], base, len), base, len);   // double step hare
         }
         if (x[i] != y[i]) {
-            if (verbosity != SILENT)
+            if (verbosity > QUIET)
                 printf("\n");
             if (verbosity == DEBUG)
                 fprintf(stderr, "n=%"PRIu64" base=%d len=%d i=%d\n", n, base, len, i);
@@ -150,7 +150,7 @@ int main(int argc, char *argv[])
             y[i] = kaprekar(y[i - 1], base, len);  // single step hare
         }
         if (x[mu] != y[i]) {
-            if (verbosity > SILENT)
+            if (verbosity > QUIET)
                 printf("\n");
             if (verbosity == DEBUG)
                 fprintf(stderr, "n=%"PRIu64" base=%d len=%d mu=%d i=%d\n", n, base, len, mu, i);
@@ -166,7 +166,7 @@ int main(int argc, char *argv[])
                 x[i] = kaprekar(x[i - 1], base, len);
         }
         if (x[mu] != x[i]) {
-            if (verbosity > SILENT)
+            if (verbosity > QUIET)
                 printf("\n");
             if (verbosity == DEBUG)
                 fprintf(stderr, "n=%"PRIu64" base=%d len=%d mu=%d lambda=%d\n", n, base, len, mu, i - mu);
@@ -174,23 +174,24 @@ int main(int argc, char *argv[])
         }
         int lambda = i - mu;  // loop length
 
-        if (cyclecount) {
+        if (verbosity == QUIET) {
+            //TODO: smarter find/update/insert, e.g. hashtable
             i = 0;
-            while (i < cyclecount && (cycle[i].mu < mu || (cycle[i].mu == mu && cycle[i].lambda < lambda)))
+            while (i < cyclecount && (cycle[i].lambda < lambda || (cycle[i].lambda == lambda && cycle[i].mu < mu)))
                 ++i;
             if (i < cyclecount) {
                 if (cycle[i].mu == mu && cycle[i].lambda == lambda)
                     cycle[i].count++;
-                else {
-                    //TODO: insert new entry
-                    // memmove();
-                }
+                else if (cyclecount < MAXCYCLE) {  // insert before
+                    memmove(&cycle[i + 1], &cycle[i], (cyclecount++ - i) * sizeof *cycle);
+                    cycle[i] = (Cycle){mu, lambda, 1};
+                } else
+                    ;  //TODO: handle error
             } else if (cyclecount < MAXCYCLE)
                 cycle[cyclecount++] = (Cycle){mu, lambda, 1};
             else
                 ;  //TODO: handle error
-        } else
-            cycle[cyclecount++] = (Cycle){mu, lambda, 1};
+        }
 
         // Show startup and loop numbers
         if (verbosity >= VERBOSE)
@@ -200,8 +201,13 @@ int main(int argc, char *argv[])
             }
 
         // Result
-        if (verbosity > SILENT)
+        if (verbosity > QUIET)
             printf(" (%d,%d)\n", mu, lambda);
     }
+
+    if (verbosity == QUIET)
+        for (int i = 0; i < cyclecount; ++i)
+            printf("%d,%d: %d\n", cycle[i].mu, cycle[i].lambda, cycle[i].count);
+
     return 0;
 }
