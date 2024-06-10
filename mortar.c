@@ -30,9 +30,12 @@ static unsigned lcm(unsigned a, unsigned b)
 }
 
 // https://www.reddit.com/r/math/comments/1dc4nfx/can_anyone_prove_24_is_not_the_largest_number/
-static bool mortar(unsigned N, unsigned n)
+static bool mortar(const unsigned N, unsigned n)
 {
-    return n > 1 ? !(N % n) && mortar(N, n - 1) : true;
+    for (; n > 1; --n)
+        if (N % n)
+            return false;
+    return true;
 }
 
 int main(void)
