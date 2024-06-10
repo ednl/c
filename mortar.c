@@ -1,42 +1,50 @@
+// Definition 1: N is "mortar" if every 1..n is a divisor of N, where n = floor(sqrt(N)).
+// Definition 2: the Least Common Multiple of 1..n is the smallest number N where every 1..n is a divisor of N.
+// Equivalent to definiton 2: LCM(a,b) = a.b/GCD(a,b) where GCD(a,b) is the greatest common divisor of a and b
+//   and LCM(a,b,c) = LCM(LCM(a,b),c) for any a,b,c.
+// From definition 1: if n = floor(sqrt(N)) then n^2 <= N < (n+1)^1.
+// From definition 1 and 2: if N is "mortar" then LCM(1..n) must be <= N.
+// With n as input variable, the LCM grows exponentionally and N quadratically.
+// So, once LCM(1..n) > N, N or any greater number can no longer be "mortar".
+
 #include <stdio.h>
-#include <stdint.h>
 #include <stdbool.h>
 
-static uint64_t lcm(const uint64_t a, const uint64_t b)
+// Greatest Common Divisor
+// https://en.wikipedia.org/wiki/Euclidean_algorithm#Implementations
+static unsigned gcd(unsigned a, unsigned b)
 {
-    if (!a || !b)
-        return 0;
-    uint64_t p, q, r;
-    if (a >= b) {
-        p = a;
-        q = b;
-    } else {
-        p = b;
-        q = a;
-    }
-    while (q) {
-        r = p % q;
-        p = q;
-        q = r;
-    }
-    return a / p * b;
+	while (b) {
+		unsigned tmp = b;
+		b = a % b;
+		a = tmp;
+	}
+	return a;
 }
 
-static bool mortar(uint64_t N, uint64_t n)
+// Least Common Multiple
+// https://en.wikipedia.org/wiki/Least_common_multiple#Calculation
+static unsigned lcm(unsigned a, unsigned b)
+{
+	return a / gcd(a, b) * b;
+}
+
+// https://www.reddit.com/r/math/comments/1dc4nfx/can_anyone_prove_24_is_not_the_largest_number/
+static bool mortar(unsigned N, unsigned n)
 {
     return n > 1 ? !(N % n) && mortar(N, n - 1) : true;
 }
 
 int main(void)
 {
-    // n = floor(sqrt(N))
-    for (uint64_t N = 1, n = 1, next = 1;; ++n) {
-        next += (n << 1) + 1;
-        if (next < N)
-            break;
-        for (; N < next; ++N)
-            if (mortar(N, n))
-                printf("%llu\n", N);
-    }
+    for (unsigned n = 1, N = 1, prev = 1, l = 1; prev <= l; ++n, N += (n << 1) - 1, prev = l, l = lcm(l, n))
+        printf("n=floor(sqrt(%3u..%3u))=%2u  lcm(1..%2u)=%10u\n", N, N + (n << 1), n, n, l);
+
+    printf("\nMortar numbers:\n");
+    for (unsigned n = 1, sqroot = 1, l = 1, nextsq = 1; l <= n; l = lcm(l, ++sqroot))
+        for (nextsq += (sqroot << 1) + 1; n < nextsq; ++n)
+            if (mortar(n, sqroot))
+                printf("%d\n", n);
+
     return 0;
 }
