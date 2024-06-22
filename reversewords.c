@@ -13,15 +13,6 @@ static void revstr(char *s, char *end)
     }
 }
 
-// Does string contain any spaces from s to end (exclusive)
-static bool hasspace(const char *s, const char *const end)
-{
-    while (s < end)
-        if (isspace(*s++))
-            return true;
-    return false;
-}
-
 // Reverse words in string, keep char order in words
 static void reverse_words(char *s)
 {
@@ -35,9 +26,6 @@ static void reverse_words(char *s)
     // Skip spaces at end ("rtrim") incl. newline
     while (s < end && isspace(*(end - 1)))
         --end;
-    // Anything to reverse?
-    if (!hasspace(s + 1, end - 1))
-        return;
     // Reverse trimmed part of line char by char
     revstr(s, end);
     // Unreverse words
