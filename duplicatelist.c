@@ -139,12 +139,12 @@ int main(void)
 
     Node *list1 = generate_list(5);
     if (!list1)
-        return EXIT_FAILURE;
+        return 1;
     print_list(list1);
 
     Node *list2 = duplicate_list(list1);
     if (!list2)
-        return EXIT_FAILURE;
+        return 2;
     print_list(list2);
 
     delete_list(list1);
