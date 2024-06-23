@@ -24,27 +24,27 @@ static int randomint(const int min, const int max)
 static Node *list_from_refs(const int count, const int *const refs)
 {
     // Array of Node pointers
-    Node **pnode = malloc(count * sizeof(Node*));
-    if (!pnode)
+    Node **ppnode = malloc(count * sizeof *ppnode);
+    if (!ppnode)
         return NULL;
     // Allocate nodes
     for (int i = 0; i < count; ++i)
-        if (!(pnode[i] = malloc(sizeof(Node))))
+        if (!(ppnode[i] = malloc(sizeof **ppnode)))
             return NULL;
     // Set nodes except last
     for (int i = 0; i < count - 1; ++i)
-        *pnode[i] = (Node){.next = pnode[i + 1], .ref = pnode[refs[i]]};
+        *ppnode[i] = (Node){.next = ppnode[i + 1], .ref = ppnode[refs[i]]};
     // Set last node
-    *pnode[count - 1] = (Node){.next = NULL, .ref = pnode[refs[count - 1]]};
-    Node *head = pnode[0];
-    free(pnode);
+    *ppnode[count - 1] = (Node){.next = NULL, .ref = ppnode[refs[count - 1]]};
+    Node *head = ppnode[0];
+    free(ppnode);
     return head;
 }
 
 static Node *generate_list(const int count)
 {
     // Array of indices in range [0..count-1]
-    int *iref = malloc(count * sizeof(int));
+    int *iref = malloc(count * sizeof *iref);
     if (!iref)
         return NULL;
     for (int i = 0; i < count; ++i)
@@ -104,7 +104,7 @@ static Node *duplicate_list(const Node *const oldlist)
     if (!count)
         return NULL;
     // Inventory of internal references
-    Ref *ref = malloc(count * sizeof(Ref));
+    Ref *ref = malloc(count * sizeof *ref);
     if (!ref)
         return NULL;
     const Node *n = oldlist;
@@ -122,7 +122,7 @@ static Node *duplicate_list(const Node *const oldlist)
     // Sort by original index
     qsort(ref, count, sizeof *ref, cmp_refindex);
     // Ref indices to separate array
-    int *iref = malloc(count * sizeof(int));
+    int *iref = malloc(count * sizeof *iref);
     if (!iref)
         return NULL;
     for (int i = 0; i < count; ++i)
