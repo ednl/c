@@ -84,7 +84,7 @@ static int cmp_refnode(const void *p, const void *q)
     const Ref *const b = q;
     // Undefined Behaviour because pointers have provenance, they aren't
     // just integers, and can't be compared as < or > because they refer
-    // to different objects.
+    // to different allocated objects.
     // Only valid comparison would be == or != but that means no sorting
     // and back to a quadratic solution.
     if (a->node < b->node) return -1;
