@@ -1,13 +1,17 @@
 #include <stdio.h>
 #include <ctype.h>   // isspace
-#include <stdlib.h>  // strtoul
-#include <limits.h>  // INT_MAX
+#include <stdlib.h>  // strtoul, random
+#include <limits.h>  // UINT_MAX
 #include <stdbool.h>
 #include "startstoptimer.h"
 
 // Two hex digits per byte
 #define HEXDIGITS (sizeof(unsigned) << 1)
 #define TOPNIBBLE (0xFU << ((HEXDIGITS - 1) << 2))
+
+#define COUNT 100000000
+#define LEN 16
+static char testval[COUNT][LEN];
 
 // c >= 32 && c < 128
 static inline bool readable_ascii(const char c)
@@ -49,7 +53,7 @@ static unsigned htoi(const char *s)
     return ishexdigit(*s) ? UINT_MAX : x;  // too many hex digits = error
 }
 
-static unsigned htoi_alt(const char *s)
+static unsigned htoi_libc(const char *s)
 {
     unsigned long x = strtoul(s, NULL, 16);
     return x > UINT_MAX ? UINT_MAX : x;
@@ -57,17 +61,37 @@ static unsigned htoi_alt(const char *s)
 
 int main(void)
 {
+    puts("Generating random list ...");
+    const int part = COUNT / 4;
+    int i = 0;
+    for (int j = 0; j < part; ++j)
+        sprintf(testval[i++], "%-X", (unsigned)random());
+    for (int j = 0; j < part; ++j)
+        sprintf(testval[i++], "%10x", (unsigned)random());
+    for (int j = 0; j < part; ++j)
+        sprintf(testval[i++], "%-#X", (unsigned)random());
+    for (int j = 0; j < part; ++j)
+        sprintf(testval[i++], "%#12x", (unsigned)random());
+
+    for (i = 0; i < 4; ++i)
+        for (int j = 0; j < 5; ++j)
+            printf("'%s'\n", testval[part * i + j]);
+
     volatile unsigned x;
 
+    puts("\nhtoi:");
     starttimer();
-    for (int i = 0; i < 1000000000; ++i)
-        x = htoi(" 0xCafeBabe");
-    printf("%.2f s\n", stoptimer_s());
+    x = 0;
+    for (int i = 0; i < COUNT; ++i)
+        x += htoi(testval[i]);
+    printf("sum=%u\nTime: %.2f s\n", x, stoptimer_s());
 
+    puts("\nstrtoul:");
     starttimer();
-    for (int i = 0; i < 1000000000; ++i)
-        x = htoi_alt(" 0xCafeBabe");
-    printf("%.2f s\n", stoptimer_s());
+    x = 0;
+    for (int i = 0; i < COUNT; ++i)
+        x += htoi_libc(testval[i]);
+    printf("sum=%u\nTime: %.2f s\n\n", x, stoptimer_s());
 
     return 0;
 }
