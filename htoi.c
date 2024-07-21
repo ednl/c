@@ -6,33 +6,36 @@
 #include "startstoptimer.h"
 
 // Two hex digits per byte
-#define HEXDIGITS (sizeof(unsigned) << 1)
-#define TOPNIBBLE (0xFU << ((HEXDIGITS - 1) << 2))
+#define UINT_HEXDIGITS (sizeof(unsigned) << 1)
+#define UINT_TOPNIBBLE (0xFU << ((UINT_HEXDIGITS - 1) << 2))
 
-#define COUNT 100000000
-#define LEN 16
-static char testval[COUNT][LEN];
+#define TEST_COUNT (100 * 1000 * 1000)
+#define TEST_LEN 16
+static char testval[TEST_COUNT][TEST_LEN];
 
-// c >= 32 && c < 128
-static inline bool readable_ascii(const char c)
+// Check if char c >= 32 && c < 128
+// So, this also includes space (32) and ESC (127)
+// but we're only looking for hex digits anyway.
+static inline bool printable_ascii(const char c)
 {
     return c & 0x60;
 }
 
-// Overflow if left-shifted by 4
+// Will overflow if left-shifted by 4
 static inline bool overflow_danger(const unsigned x)
 {
-    return x & TOPNIBBLE;
+    return x & UINT_TOPNIBBLE;
 }
 
-// c in [0..9,A..F,a..f]
+// Char c in [0..9,A..F,a..f]
 static inline bool ishexdigit(const char c)
 {
-    return readable_ascii(c) && ((c >= '0' && c <= '9') || (c >= 'A' && c <= 'F') || (c >= 'a' && c <= 'f'));
+    return printable_ascii(c) && ((c >= '0' && c <= '9') || (c >= 'A' && c <= 'F') || (c >= 'a' && c <= 'f'));
+    // return c >= '0' && c <= 'f' && (c <= '9' || c >= 'a' || (c >= 'A' && c <= 'F'));
 }
 
 // Hexadecimal ASCII byte string to (unsigned) int
-static unsigned htoi(const char *s)
+static unsigned htoui(const char *s)
 {
     if (!s)
         return 0;
@@ -41,7 +44,7 @@ static unsigned htoi(const char *s)
     if (*s == '0' && (*(s + 1) | 0x20) == 'x')  // set bit 5 = to lower case
         s += 2;  // skip "0x" hex prefix
     unsigned x = 0;
-    while (readable_ascii(*s) && !overflow_danger(x)) {
+    while (printable_ascii(*s) && !overflow_danger(x)) {
         const char c = *s++ | 0x20;  // doesn't affect '0'..'9' and 0x10..0x19 already excluded
         if (c >= '0' && c <= '9')
             x = x << 4 | (c & 0xF);  // times 16, add 0..9
@@ -53,7 +56,7 @@ static unsigned htoi(const char *s)
     return ishexdigit(*s) ? UINT_MAX : x;  // too many hex digits = error
 }
 
-static unsigned htoi_libc(const char *s)
+static unsigned htoui_libc(const char *s)
 {
     unsigned long x = strtoul(s, NULL, 16);
     return x > UINT_MAX ? UINT_MAX : x;
@@ -62,7 +65,7 @@ static unsigned htoi_libc(const char *s)
 int main(void)
 {
     puts("Generating random list ...");
-    const int part = COUNT / 4;
+    const int part = TEST_COUNT / 4;
     int i = 0;
     for (int j = 0; j < part; ++j)
         sprintf(testval[i++], "%-X", (unsigned)random());
@@ -79,18 +82,18 @@ int main(void)
 
     volatile unsigned x;
 
-    puts("\nhtoi:");
+    puts("\nhtoui:");
     starttimer();
     x = 0;
-    for (int i = 0; i < COUNT; ++i)
-        x += htoi(testval[i]);
+    for (int i = 0; i < TEST_COUNT; ++i)
+        x += htoui(testval[i]);
     printf("sum=%u\nTime: %.2f s\n", x, stoptimer_s());
 
     puts("\nstrtoul:");
     starttimer();
     x = 0;
-    for (int i = 0; i < COUNT; ++i)
-        x += htoi_libc(testval[i]);
+    for (int i = 0; i < TEST_COUNT; ++i)
+        x += htoui_libc(testval[i]);
     printf("sum=%u\nTime: %.2f s\n\n", x, stoptimer_s());
 
     return 0;
