@@ -1,16 +1,35 @@
+/**
+ * Iterator function for generating combinations,
+ * analoguous to Python's itertools.combinations.
+ * Adapted from Knuth 4A, §7.2.1.3, algorithm T.
+ * Freeware. No pull requests accepted.
+ *
+ * See combinations-test.c in this repo for an example program.
+ *
+ * Made by: E. Dronkert, Utrecht NL, May 2024.
+ * https://github.com/ednl
+ * https://mastodon.social/@ednl
+ */
+
 #include <stdlib.h>  // malloc
 #include "combinations.h"
 
-// Successive calls give combinations of k indices from a set of n.
-// Adapted from Knuth 4A, §7.2.1.3, algorithm T.
-// Returns pointer to array of int, index 0..k-1.
-// For example: combinations(3,2) gives [0,1], [0,2], [1,2]
+// Successive calls give different combinations of k indices
+// from a set of n. Returns pointer to first element of array
+// of length k.
+//
+// For example: three calls of `combinations(3,2)` give three
+// (identical) pointers to arrays: [1,0], [2,0] and [2,1].
+// The fourth call will return NULL (and memory is freed).
+//
+// To reset and free memory before all combinations have been
+// generated, call with n<=0 or k<=0 or n<=k.
 int *combinations(const int n, const int k)
 {
     static int *index = NULL;
     static int j, x;
 
-    // Wrong input or reset
+    // Wrong input, or reset.
     if (n <= 0 || k <= 0 || n <= k) {
         free(index);
         return index = NULL;
@@ -29,6 +48,8 @@ int *combinations(const int n, const int k)
         return index;
     }
 
+    // Construct new combination, return immediately when
+    // the next one is complete.
     while (j >= 0) {
         index[j] = j + 1;
         j--;
@@ -46,11 +67,12 @@ int *combinations(const int n, const int k)
         index[j - 1] = j - 1;
     } while ((x = index[j] + 1) == index[j + 1]);
 
-    if (j >= k) {
-        free(index);
-        return index = NULL;
+    if (j < k) {
+        index[j--] = x;
+        return index;
     }
 
-    index[j--] = x;
-    return index;
+    // No more new combinations
+    free(index);
+    return index = NULL;
 }
