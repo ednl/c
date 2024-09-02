@@ -13,9 +13,40 @@ typedef struct var {
     int id, row, col;
 } Var;
 
-static int rows, cols;
-static Var *var;  // input matrix variable names
+// Input matrix
+static int rows, cols;  // how many rows/cols of variables
+static Var *var;  // variable names and positions
 static int *sum;  // sum values of rows and columns
+
+static bool grow(void **p, size_t *count, size_t width)
+{
+    if (*count && !width)
+        return false;
+    if (!*count) {
+        free(*p);
+        *p = NULL;
+        return true;
+    }
+    if (!*p) {
+        void *tmp = calloc(*count, width);
+        if (tmp) {
+            *p = tmp;
+            return true;
+        }
+        *count = 0;
+        return false;
+    }
+    size_t bytes = (*count * width) << 1;
+    if (bytes <= *count || bytes <= width)
+        return false;
+    void *tmp = realloc(*p, bytes);
+    if (tmp) {
+        *p = tmp;
+        *count <<= 1;
+        return true;
+    }
+    return false;
+}
 
 static inline int hashvarname(const char *const s)
 {
@@ -124,17 +155,25 @@ int main(void)
     showinput();
 
     // Count unique variables
-    int varcount = 0;
-    int curvar = -1;
+    int maxvarcount = 8;
+    int *varids = malloc(maxvarcount * sizeof *varids);
     qsort(var, rows * cols, sizeof *var, cmp_name);
-    for (int i = 0; i < rows * cols; ++i)
-        if (var[i].id != curvar) {
-            curvar = var[i].id;
-            ++varcount;
+    varids[0] = var[0].id;
+    int varcount = 1;
+    for (int i = 1; i < rows * cols; ++i)
+        if (var[i].id != varids[varcount - 1]) {
+            if (varcount == maxvarcount) {
+                int *p = realloc(varids, (maxvarcount << 1) * sizeof *varids);
+                if (p) {
+                    maxvarcount <<= 1;
+                    varids = p;
+                } else
+                    ;  // TODO: catch error
+            }
+            varids[varcount++] = var[i].id;
         }
     if (varcount < 1)
         goto err1;
-    int *varids = calloc(varcount, sizeof *varids);
     if (!varids)
         goto err2;
 
