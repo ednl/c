@@ -6,8 +6,7 @@ int main(void)
     int dup = 0;
     for (int i = 0; a[i]; ++i)
         for (int j = 0, seen = 0; a[j]; ++j) {
-            if (i > j && a[i] == a[j])
-                seen = 1;
+            seen += i > j && a[i] == a[j];
             dup += !seen && i < j && a[i] == a[j];
         }
     printf("%d\n", dup);
