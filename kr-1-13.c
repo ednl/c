@@ -3,55 +3,37 @@
  * Make histogram of word length in input.
  */
 #include <stdio.h>
-#include <ctype.h>  // isspace
 
-#define MAXLEN 12
+#define MAXWORDLEN 15
+#define BINS (MAXWORDLEN + 1)  // one extra for overflow
 
-// Histogram of word length up to & including MAXLEN
-static int hist[MAXLEN + 1];
-
-static void horz_bar(int width)
-{
-    while (width--)
-        putchar('#');
-    putchar('\n');
-}
+static int hist[BINS];
 
 int main(void)
 {
-    // Process data
-    int c, len = 0, maxcount = 0;
+    int c, wordlen = 0, minbin = BINS, maxbin = -1;
     while ((c = getchar()) != EOF) {
-        if (isspace(c)) {
-            if (len) {
-                int i = len <= MAXLEN ? len : 0;
-                if (++hist[i] > maxcount)
-                    maxcount = hist[i];
-                len = 0;
-            }
-        } else
-            len++;
+        if ((c >= 'A' && c <= 'Z') || (c >= 'a' && c <= 'z'))
+            ++wordlen;
+        else if (wordlen) {
+            const int bin = wordlen <= MAXWORDLEN ? wordlen - 1 : BINS - 1;
+            if (bin < minbin) minbin = bin;
+            if (bin > maxbin) maxbin = bin;
+            ++hist[bin];
+            wordlen = 0;
+        }
     }
 
-    // Draw axis and labels
-    printf("  0");
-    for (int i = 5; i < maxcount + 5; i += 5)
-        printf("%5d", i);
-    printf("\n--+");
-    for (int i = 0; i < maxcount; i += 5)
-        printf("----+");
-    putchar('\n');
-
-    // Show histogram
-    for (int i = 1; i <= MAXLEN; ++i) {
-        printf("%2d ", i);
-        horz_bar(hist[i]);
-    }
-
-    // Words longer than MAXLEN
-    if (hist[0]) {
-        printf(">> ");
-        horz_bar(hist[0]);
+    for (int bin = minbin; bin <= maxbin; ++bin) {
+        const int label = bin + 1;
+        if (label <= MAXWORDLEN)
+            printf("%3d", label);
+        else
+            printf(">%2d", MAXWORDLEN);
+        putchar(' ');
+        while (hist[bin]--)
+            putchar('#');
+        putchar('\n');
     }
 
     return 0;
