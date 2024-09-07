@@ -7,7 +7,7 @@
 #define MAXWORDLEN 15
 #define BINS (MAXWORDLEN + 1)  // one extra for overflow
 
-static int hist[BINS];
+static int histogram[BINS];
 
 int main(void)
 {
@@ -19,7 +19,7 @@ int main(void)
             const int bin = wordlen <= MAXWORDLEN ? wordlen - 1 : BINS - 1;
             if (bin < minbin) minbin = bin;
             if (bin > maxbin) maxbin = bin;
-            ++hist[bin];
+            ++histogram[bin];
             wordlen = 0;
         }
     }
@@ -27,11 +27,10 @@ int main(void)
     for (int bin = minbin; bin <= maxbin; ++bin) {
         const int label = bin + 1;
         if (label <= MAXWORDLEN)
-            printf("%3d", label);
+            printf("%3d ", label);
         else
-            printf(">%2d", MAXWORDLEN);
-        putchar(' ');
-        while (hist[bin]--)
+            printf(">%2d ", MAXWORDLEN);
+        while (histogram[bin]--)
             putchar('#');
         putchar('\n');
     }
