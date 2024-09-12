@@ -11,15 +11,16 @@
  */
 
 #include <stdio.h>
+#include <stdint.h>  // int_least32_t
 #include <unistd.h>  // isatty, fileno
 
-#define PANGRAM ((1 << 26) - 1)  // complete checklist
+#define PANGRAM ((INT32_C(1) << 26) - 1)  // complete checklist
 #define TOLOWER (1 << 5)         // 'A' | 32 == 'a'
 
 // Read all command line arguments and check for pangram.
-static int read_args(const int argc, char **argv)
+static int_least32_t read_args(const int argc, char **argv)
 {
-    int map = 0;
+    int_least32_t map = 0;
     for (int i = 1; i < argc; ++i) {
         const char *s = argv[i];
         while (*s) {
@@ -32,9 +33,10 @@ static int read_args(const int argc, char **argv)
 }
 
 // Read from stdin until stop character and check for pangram.
-static int read_until(const int stop)
+static int_least32_t read_until(const int stop)
 {
-    int c, map = 0;
+    int_least32_t map = 0;
+    int c;
     while ((c = fgetc(stdin)) != stop) {
         c |= TOLOWER;
         if (c >= 'a' && c <= 'z' && (map |= 1 << (c - 'a')) == PANGRAM)
@@ -45,7 +47,7 @@ static int read_until(const int stop)
 
 int main(int argc, char *argv[])
 {
-    int found = 0;
+    int_least32_t found = 0;
 
     if (!isatty(fileno(stdin))) {
         // Input is pipe or redirect to stdin of this program.
