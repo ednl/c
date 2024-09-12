@@ -10,12 +10,12 @@
  * Otherwise returns 1 and prints missing letters to stderr.
  */
 
-#include <stdio.h>
-#include <stdint.h>  // int_least32_t
+#include <stdio.h>   // stdin, stderr, fgetc, fputc, EOF
+#include <stdint.h>  // int_least32_t, INT32_C
 #include <unistd.h>  // isatty, fileno
 
-#define PANGRAM ((INT32_C(1) << 26) - 1)  // complete checklist
-#define TOLOWER (1 << 5)         // 'A' | 32 == 'a'
+#define PANGRAM ((INT32_C(1) << 26) - 1)  // all letters checked
+#define TOLOWER (1 << 5)                  // 'A' | 32 == 'a'
 
 // Read all command line arguments and check for pangram.
 static int_least32_t read_args(const int argc, char **argv)
