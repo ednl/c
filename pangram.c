@@ -1,6 +1,13 @@
 /**
  * Determines if input contains all letters of the (7-bit ASCII)
  * alphabet, or: is this a https://en.wikipedia.org/wiki/Pangram
+ *
+ * Input taken from pipe or redirect, if available.
+ * Otherwise from commandline argument(s), if present.
+ * Otherwise from manual input on the console.
+ *
+ * Returns exit code 0 (success) if input was a pangram.
+ * Otherwise returns 1 and prints missing letters to stderr.
  */
 
 #include <stdio.h>
@@ -9,6 +16,7 @@
 #define PANGRAM ((1 << 26) - 1)  // complete checklist
 #define TOLOWER (1 << 5)         // 'A' | 32 == 'a'
 
+// Read all command line arguments and check for pangram.
 static int read_args(const int argc, char **argv)
 {
     int map = 0;
@@ -23,6 +31,7 @@ static int read_args(const int argc, char **argv)
     return map;
 }
 
+// Read from stdin until stop character and check for pangram.
 static int read_until(const int stop)
 {
     int c, map = 0;
@@ -39,27 +48,27 @@ int main(int argc, char *argv[])
     int found = 0;
 
     if (!isatty(fileno(stdin))) {
-        // Input is pipe or redirect to stdin of this program
+        // Input is pipe or redirect to stdin of this program.
         found = read_until(EOF);
     } else if (argc > 1) {
-        // Command line arguments
+        // Command line arguments.
         found = read_args(argc, argv);
     } else {
-        // Manual input
+        // Manual input.
         printf("? ");
         found = read_until('\n');
     }
 
-    // Pangram found = success
+    // Pangram found = success.
     if (found == PANGRAM)
         return 0;
 
-    // Report missing letters
+    // Report missing letters.
     for (int c = 'a'; c <= 'z'; ++c, found >>= 1)
         if (!(found & 1))
             fputc(c, stderr);
     fputc('\n', stderr);
 
-    // Not a pangram = error
+    // Not a pangram = error.
     return 1;
 }
