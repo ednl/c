@@ -13,24 +13,18 @@
 #include <stdio.h>
 int main(void)
 {
-    unsigned power[10] = {1,1,1,1,1,1,1,1,1,1};
-    for (unsigned digits = 1, beg = 1, end = 10;; ++digits) {
-        for (unsigned i = 0; i < 10; ++i)
-            power[i] *= i;  // should check for overflow
-        printf("%u:", digits);
-        for (unsigned n = beg; n < end; ++n) {
-            unsigned sum = 0;
-            for (unsigned a = n; a; a /= 10)
-                sum += power[a % 10];
+    const int max = 1000 * 1000 * 1000;  // greatest power of 10 representable as int
+    int powers[10] = {1,1,1,1,1,1,1,1,1,1};
+    for (int n = 1, magnitude = 10; n < max; magnitude *= 10) {
+        for (int i = 0; i < 10; ++i)
+            powers[i] *= i;
+        for (; n < magnitude; ++n) {
+            int sum = 0;
+            for (int x = n; x; x /= 10)
+                sum += powers[x % 10];
             if (sum == n)
-                printf(" %u", n);
+                printf("%d\n", n);  // Narcissistic or Armstrong number
         }
-        printf("\n");
-        beg = end;
-        unsigned shift = end << 3;  // times 8 is less than times 10
-        end *= 10;
-        if (shift <= beg || end <= shift)
-            break;  // overflow
     }
     return 0;
 }
