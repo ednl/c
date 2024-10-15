@@ -1,6 +1,6 @@
 #include <stdio.h>   // printf
 #include <stddef.h>  // size_t, ptrdiff_t
-#include <stdint.h>  // intptr_t, intmax_t, int_fast*
+#include <stdint.h>  // intmax_t, intptr_t, int_fast*
 #include <limits.h>  // CHAR_BIT
 #include <float.h>   // FLT_*, DBL_*, LDBL_*
 
@@ -15,10 +15,10 @@ int main(void)
     printf("int              = %3zu\n", sizeof(int      ) * CHAR_BIT);
     printf("long             = %3zu\n", sizeof(long     ) * CHAR_BIT);
     printf("long long        = %3zu\n", sizeof(long long) * CHAR_BIT);
-    printf("size_t           = %3zu\n", sizeof(size_t   ) * CHAR_BIT);
-    printf("ptrdiff_t        = %3zu\n", sizeof(ptrdiff_t) * CHAR_BIT);
-    printf("intptr_t         = %3zu\n", sizeof(intptr_t ) * CHAR_BIT);
     printf("intmax_t         = %3zu\n", sizeof(intmax_t ) * CHAR_BIT);
+    printf("size_t           = %3zu\n", sizeof(size_t   ) * CHAR_BIT);
+    printf("intptr_t         = %3zu\n", sizeof(intptr_t ) * CHAR_BIT);
+    printf("ptrdiff_t        = %3zu\n", sizeof(ptrdiff_t) * CHAR_BIT);
 
     printf("\n----- Fast Integer Sizes ----------------\n");
     printf("int_fast8_t      = %3zu\n", sizeof(int_fast8_t ) * CHAR_BIT);
