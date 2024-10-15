@@ -1,8 +1,8 @@
-#include <stdio.h>     // printf
-#include <stddef.h>    // size_t, ptrdiff_t
-#include <stdint.h>    // int_fast*
-#include <limits.h>    // CHAR_BIT
-#include <float.h>     // FLT_*, DBL_*, LDBL_*
+#include <stdio.h>   // printf
+#include <stddef.h>  // size_t, ptrdiff_t
+#include <stdint.h>  // int_fast*
+#include <limits.h>  // CHAR_BIT
+#include <float.h>   // FLT_*, DBL_*, LDBL_*
 
 int main(void)
 {
