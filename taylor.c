@@ -4,11 +4,17 @@
  *
  * Given the Taylor series expansion of:
  *   f(x) = log(x + sqrt(1 + x^2))
- *
  * around x=0 as:
  *   S = x - (1/2) * (x^3 / 3) + (1/2 * 3/4) * (x^5 / 5) - (1/2 * 3/4 * 5/6) * (x^7 / 7) + ...
- *
  * calculate the series sum for a given x and epsilon.
+ *
+ * Observe that each term of the partial sum T(n) is:
+ *   T(n) = T(n-1) * -1 * x^2 * (n-2) / ((n-1) * n)
+ * where n=1,3,5,7,... and T(1)=x.
+ *
+ * Integer overflow in the coefficients should not be an issue because
+ * the series converges fast enough for reasonably small x, but still,
+ * to avoid the n*(n-1) multiplication:
  *
  * Partial fraction decomposition of the extra coefficient factor per term:
  *   (n-2)/((n-1)n) = A/(n-1) + B/n
@@ -26,9 +32,9 @@ static double f(const double x)
     return log(x + sqrt(1 + x * x));
 }
 
-static void progress(const int ord, const double coef, const double part, const double sum)
+static void progress(const int ord, const double coef, const double term, const double sum)
 {
-    printf("ord %2d coef %.12f part %+.12f sum %.12f\n", ord, coef, part, sum);
+    printf("ord %2d coef %.12f term %+.12f sum %.12f\n", ord, coef, term, sum);
 }
 
 int main(void)
@@ -41,18 +47,18 @@ int main(void)
     // First term
     int ord = 1;
     double coef = 1.0;
-    double part = x;
+    double term = x;
     double sum = x;
-    progress(ord, coef, part, sum);
+    progress(ord, coef, term, sum);
 
     // Next terms
     const double mx2 = -x * x;
-    while (fabs(part) > eps) {
+    while (fabs(term) > eps) {
         ord += 2;
         coef *= 2.0 / ord - 1.0 / (ord - 1);  // see fraction decomposition above
-        part *= mx2 * coef;
-        sum += part;
-        progress(ord, coef, part, sum);
+        term *= mx2 * coef;
+        sum += term;
+        progress(ord, coef, term, sum);
     }
 
     return 0;
