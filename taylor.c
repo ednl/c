@@ -11,10 +11,18 @@ static void progress(const int ord, const double coef, const double part, const 
     printf("ord %2d coef %.12f part %+.12f sum %.12f\n", ord, coef, part, sum);
 }
 
+/**
+ * Partial fraction decomposition of the extra coefficient factor per term:
+ * (n-2)/((n-1)n) = A/(n-1) + B/n
+ * n-2 = An + B(n-1)
+ * n=1 => A = -1
+ * n=0 => B = 2
+ * => (n-2)/((n-1)n) = -1/(n-1) + 2/n
+ */
+
 int main(void)
 {
     const double x = 20.0;
-    const double x2 = x * x;
     const double epsilon = 1e-8;
 
     const double direct = f(x);
@@ -26,10 +34,11 @@ int main(void)
     double sum = part;
     progress(ord, coef, part, sum);
 
+    const double mx2 = -x * x;
     while (fabs(part) > epsilon) {
         ord += 2;
-        coef *= (double)(ord - 2) / ((ord - 1) * ord);
-        part *= -x2 * coef;
+        coef *= 2.0 / ord - 1.0 / (ord - 1);  // see fraction decomposition above
+        part *= mx2 * coef;
         sum += part;
         progress(ord, coef, part, sum);
     }
