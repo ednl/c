@@ -23,7 +23,7 @@
 
 static double f(const double x)
 {
-    return log(x + sqrt(1 + x*x));
+    return log(x + sqrt(1 + x * x));
 }
 
 static void progress(const int ord, const double coef, const double part, const double sum)
@@ -42,7 +42,7 @@ int main(void)
     int ord = 1;
     double coef = 1.0;
     double part = x;
-    double sum = part;
+    double sum = x;
     progress(ord, coef, part, sum);
 
     // Next terms
