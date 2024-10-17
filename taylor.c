@@ -8,7 +8,7 @@
  *   S = x - (1/2) * (x^3 / 3) + (1/2 * 3/4) * (x^5 / 5) - (1/2 * 3/4 * 5/6) * (x^7 / 7) + ...
  * calculate the series sum for a given x and epsilon.
  *
- * Observe that each term of the partial sum T(n) is:
+ * Observe that each term T(n) of the partial sum S is:
  *   T(n) = T(n-1) * -1 * x^2 * (n-2) / ((n-1) * n)
  * where n=1,3,5,7,... and T(1)=x.
  *
