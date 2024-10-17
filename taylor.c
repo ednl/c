@@ -9,8 +9,8 @@
  * calculate the series sum for a given x and epsilon.
  *
  * Observe that each term T(n) of the partial sum S is:
- *   T(n) = T(n-1) * -1 * x^2 * (n-2) / ((n-1) * n)
- * where n=1,3,5,7,... and T(1)=x.
+ *   T(n) = T(n-2) * -1 * x^2 * (n-2) / ((n-1) * n)
+ * where n=3,5,7,... and T(1)=x.
  *
  * Integer overflow in the coefficients should not be an issue because
  * the series converges fast enough for reasonably small x, but still,
