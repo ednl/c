@@ -20,9 +20,10 @@
  *   = 1 + 1/2n - 4/(2n+1)
  */
 
-#include <stdio.h>  // printf
-#include <math.h>   // log, sqrt
-#include <float.h>  // DBL_DECIMAL_DIG
+#include <stdio.h>   // printf
+#include <stdlib.h>  // strtod
+#include <math.h>    // log, sqrt
+#include <float.h>   // DBL_DECIMAL_DIG
 
 static double epsilon(const int dec)
 {
@@ -60,12 +61,23 @@ static double estimate(const double x, const int dec)
 
 int main(void)
 {
-    const int dec = 6;
-    const double x = 0.5;
-    const double y = f(x);
+    char buf[BUFSIZ];
+
+    printf("x? (|x|<=1) ");
+    fgets(buf, sizeof buf, stdin);
+    const double x = strtod(buf, NULL);
+    if (fabs(x) > 1)
+        return 1;
+
+    printf("Decimal places? (1..%d) ", DBL_DECIMAL_DIG);
+    fgets(buf, sizeof buf, stdin);
+    const long d = strtol(buf, NULL, 10);
+    if (d < 1 || d > DBL_DECIMAL_DIG)
+        return 2;
+    const int dec = (int)d;
 
     printf("\n  x  = %.3f\n", x);
-    printf("f(x) = %.*f\n", dec + 2, y);
+    printf("f(x) = %.*f\n", dec + 2, f(x));
     printf("   +/- %.*f\n\n", dec + 3, 0.005 * epsilon(dec));
     const double est = estimate(x, dec);  // also print progress
     printf("\n est = %.*f\n", dec, est);
