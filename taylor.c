@@ -21,7 +21,7 @@
  */
 
 #include <stdio.h>   // printf
-#include <stdlib.h>  // strtod
+#include <stdlib.h>  // strtod, strtol
 #include <math.h>    // log, sqrt
 #include <float.h>   // DBL_DECIMAL_DIG
 
@@ -32,7 +32,7 @@ static double epsilon(const int dec)
 
 static double f(const double x)
 {
-    return log(x + sqrt(1 + x * x));
+    return log(x + hypot(x, 1));
 }
 
 static void progress(const int index, const double term, const double sum, const int dec)
@@ -77,8 +77,8 @@ int main(void)
     const int dec = (int)d;
 
     printf("\n  x  = %.3f\n", x);
-    printf("f(x) = %.*f\n", dec + 2, f(x));
-    printf("   +/- %.*f\n\n", dec + 3, 0.005 * epsilon(dec));
+    printf("f(x) = %.*f\n", dec, f(x));
+    printf("   +/- %.*f\n\n", dec, epsilon(dec));
     const double est = estimate(x, dec);  // also print progress
     printf("\n est = %.*f\n", dec, est);
     printf("   +/- %.*f\n\n", dec, epsilon(dec));
