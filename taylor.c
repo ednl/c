@@ -14,15 +14,16 @@
  * for n=1,2,3,...
  *
  * Partial fraction decomposition of the extra coefficient factor per term:
- *   (2n-1)^2 / 2n(2n+1)
- *   = ((2n+1)^2 - 8n) / 2n(2n+1)
- *   = (2n+1)/2n - 8n / 2n(2n+1)
- *   = 1 + 1/2n - 4/(2n+1)
+ *      (2n-1)^2 / (2n(2n+1))
+ *   = ((2n+1)^2 - 8n) / (2n(2n+1))
+ *   = (2n+1)/(2n) - 8n / (2n(2n+1))
+ *   = 1 + 1/(2n) - 4/(2n+1)
+ * for n=1,2,3,...
  */
 
 #include <stdio.h>   // printf
 #include <stdlib.h>  // strtod, strtol
-#include <math.h>    // log, sqrt
+#include <math.h>    // log, hypot
 #include <float.h>   // DBL_DECIMAL_DIG
 
 static double epsilon(const int dec)
@@ -76,10 +77,10 @@ int main(void)
         return 2;
     const int dec = (int)d;
 
-    printf("\n  x  = %.3f\n", x);
-    printf("f(x) = %.*f\n", dec, f(x));
-    printf("   +/- %.*f\n\n", dec, epsilon(dec));
+    printf("\n");
     const double est = estimate(x, dec);  // also print progress
-    printf("\n est = %.*f\n", dec, est);
-    printf("   +/- %.*f\n\n", dec, epsilon(dec));
+    printf("\n    x  = %.3f\n", x);
+    printf("  f(x) = %.*f\n", dec, f(x));
+    printf("taylor = %.*f\n", dec, est);
+    printf("     +/- %.*f\n", dec, epsilon(dec));
 }
