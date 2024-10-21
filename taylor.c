@@ -79,7 +79,9 @@ int main(void)
 
     printf("\n");
     const double est = estimate(x, dec);  // also print progress
-    printf("\n    x  = %.3f\n", x);
+    printf("\n");
+
+    printf("    x  = %.3f\n", x);
     printf("  f(x) = %.*f\n", dec, f(x));
     printf("taylor = %.*f\n", dec, est);
     printf("     +/- %.*f\n", dec, epsilon(dec));
