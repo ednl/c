@@ -26,36 +26,42 @@
 #include <math.h>    // log, hypot
 #include <float.h>   // DBL_DECIMAL_DIG
 
-static double epsilon(const int dec)
-{
-    return pow(10, -dec);
-}
+#define MAXITER 1000
 
+// Original analytic function.
 static double f(const double x)
 {
     return log(x + hypot(x, 1));
 }
 
-static void progress(const int index, const double term, const double sum, const int dec)
+// Construct number 1e-n, e.g. for decimals=3: 0.001
+static double make_epsilon(const int decimals)
 {
-    printf("%3d: %+.*f = %.*f\n", index, dec + 1, term, dec, sum);
+    return pow(10, -decimals);
 }
 
-static double estimate(const double x, const int dec)
+// Show the subsequent terms of the Taylor series.
+static void progress(const int index, const double term, const double sum, const int decimals)
 {
-    const double eps = epsilon(dec);
+    printf("%3d: %+.*f = %.*f\n", index, decimals + 1, term, decimals, sum);
+}
+
+// Calculate the Taylor series sum for function f.
+static double estimate(const double x, const int decimals)
+{
+    const double eps = make_epsilon(decimals);
     double term = x;
     double sum = x;
-    if (dec > 0 && dec <= DBL_DECIMAL_DIG)
-        progress(0, term, sum, dec);
+    if (decimals > 0 && decimals <= DBL_DECIMAL_DIG)
+        progress(0, term, sum, decimals);
 
     const double mx2 = -x * x;
-    for (int n = 1; fabs(term) >= eps && n < 1000; ++n) {
+    for (int n = 1; !isinf(term) && !isinf(sum) && fabs(term) >= eps && n < MAXITER; ++n) {
         const int n2 = n << 1;
         term *= mx2 * (1.0 / n2 - 4.0 / (n2 + 1) + 1);
         sum += term;
-        if (dec > 0 && dec <= DBL_DECIMAL_DIG)
-            progress(n, term, sum, dec);
+        if (decimals > 0 && decimals <= DBL_DECIMAL_DIG)
+            progress(n, term, sum, decimals);
     }
     return sum;
 }
@@ -67,7 +73,7 @@ int main(void)
     printf("x? (|x|<=1) ");
     fgets(buf, sizeof buf, stdin);
     const double x = buf[0] == '\n' ? 0.5 : strtod(buf, NULL);
-    if (fabs(x) > 1)
+    if (fabs(x) > 1.001)
         return 1;
 
     printf("Decimal places? (1..%d) ", DBL_DECIMAL_DIG);
@@ -84,5 +90,5 @@ int main(void)
     printf("    x  = %.3f\n", x);
     printf("  f(x) = %.*f\n", dec, f(x));
     printf("taylor = %.*f\n", dec, est);
-    printf("     +/- %.*f\n", dec, epsilon(dec));
+    printf("     +/- %.*f\n", dec, make_epsilon(dec));
 }
