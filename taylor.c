@@ -66,13 +66,13 @@ int main(void)
 
     printf("x? (|x|<=1) ");
     fgets(buf, sizeof buf, stdin);
-    const double x = strtod(buf, NULL);
+    const double x = buf[0] == '\n' ? 0.5 : strtod(buf, NULL);
     if (fabs(x) > 1)
         return 1;
 
     printf("Decimal places? (1..%d) ", DBL_DECIMAL_DIG);
     fgets(buf, sizeof buf, stdin);
-    const long d = strtol(buf, NULL, 10);
+    const long d = buf[0] == '\n' ? 8 : strtol(buf, NULL, 10);
     if (d < 1 || d > DBL_DECIMAL_DIG)
         return 2;
     const int dec = (int)d;
