@@ -9,7 +9,7 @@
 static void wordflush(char *const buf, size_t *const len)
 {
     buf[*len] = '\0';     // end of word.
-    // printf("%s\n", buf);  // print finished word.
+    printf("%s\n", buf);  // print finished word.
     *len = 0;             // no longer inside a word.
 }
 
