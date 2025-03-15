@@ -1,34 +1,58 @@
 #include <stdio.h>
-#include <string.h>
-#include <stdint.h>
+#include <string.h>  // strstr
+#include <math.h>    // round
+#include <stdint.h>  // int64_t
 #include <stdbool.h>
 
 #define FNAME "piday2025.txt"
-#define DAYS     30
-#define COLPRICE 13
-#define COLNAME  32
+#define MAXDAYS   32
+#define LINELEN   64
+#define COLDAY     0
+#define COLPRICE  13
+#define COLTICKER 32
 
 static const char *pi32 = "31415926535897932384626433832795";
 
 typedef struct stock {
-    int day;
+    int day, key;
     double price;
     char digits[8];
     char ticker[8];
     bool manip;
 } Stock;
 
-static Stock stock[DAYS];
+static Stock stock[MAXDAYS];
 
-static double hiddenval(void)
+static int parse(void)
 {
+    FILE *f = fopen(FNAME, "r");
+    if (!f)
+        return 0;
+    char line[LINELEN];
+    fgets(line, sizeof line, f);  // discard first line (header)
+    int n = 0;
+    for (; n < MAXDAYS && fgets(line, sizeof line, f); ++n) {
+        sscanf(&line[COLDAY], "%d", &stock[n].day);
+        sscanf(&line[COLPRICE], "%lf", &stock[n].price);
+        stock[n].key = (int)round(stock[n].price * 100);
+        sprintf(stock[n].digits, "%d", stock[n].key);
+        sscanf(&line[COLTICKER], "%4s", stock[n].ticker);
+    }
+    fclose(f);
+    return n;
+}
+
+static double hiddenval(const int days)
+{
+    if (days <= 0)
+        return 0;
     int i = 0;
-    while (i < DAYS && !strstr(pi32, stock[i].digits))
+    while (i < days && !strstr(pi32, stock[i].digits))
         ++i;
-    if (i == DAYS)
+    if (i == days)
         return 0;
     double secret = stock[i++].price;
-    for (; i < DAYS; ++i)
+    for (; i < days; ++i)
         if (strstr(pi32, stock[i].digits)) {
             stock[i].manip = true;
             switch (stock[i].day & 1) {
@@ -39,29 +63,13 @@ static double hiddenval(void)
     return secret;
 }
 
+static char rot(const char c, const int key)
+{
+    return 'A' + (c - 'A' + key) % ('Z' - 'A' + 1);
+}
+
 int main(void)
 {
-    // Open file
-    FILE *f = fopen(FNAME, "r");
-    if (!f) return 1;
-
-    // Parse file
-    char line[64];
-    fgets(line, sizeof line, f);  // discard first line
-    for (int i = 0; i < DAYS && fgets(line, sizeof line, f); ++i) {
-        stock[i].day = i + 1;
-        sscanf(&line[COLPRICE], "%lf", &stock[i].price);
-        for (int j = COLPRICE, k = 0; line[j] != ' '; ++j)
-            if (line[j] != '.')
-                stock[i].digits[k++] = line[j];  // already NUL terminated from static init
-        sscanf(&line[COLNAME], "%4s", stock[i].ticker);
-    }
-    fclose(f);
-
-    // Show data
-    // for (int i = 0; i < DAYS; ++i)
-    //     printf("%-2d %-5s %-4s %.2f\n", stock[i].day, stock[i].digits, stock[i].ticker, stock[i].price);
-
     char buf[32];
     sprintf(buf, "%.10e", hiddenval());  // 11 digits total, so no rounding of 10th digit
     int64_t secret = 0;
