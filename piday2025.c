@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <string.h>
 #include <stdint.h>
+#include <stdbool.h>
 
 #define FNAME "piday2025.txt"
 #define DAYS     30
@@ -14,6 +15,7 @@ typedef struct stock {
     double price;
     char digits[8];
     char ticker[8];
+    bool manip;
 } Stock;
 
 static Stock stock[DAYS];
@@ -25,16 +27,13 @@ static double hiddenval(void)
         ++i;
     if (i == DAYS)
         return 0;
-    // printf("%d: %.2f\n", stock[i].day, stock[i].price);
     double secret = stock[i++].price;
     for (; i < DAYS; ++i)
         if (strstr(pi32, stock[i].digits)) {
-            if (stock[i].day & 1) {
-                secret /= stock[i].price;
-                // printf("%d: / %.2f = %.14f\n", stock[i].day, stock[i].price, secret);
-            } else {
-                secret *= stock[i].price;
-                // printf("%d: * %.2f = %.14f\n", stock[i].day, stock[i].price, secret);
+            stock[i].manip = true;
+            switch (stock[i].day & 1) {
+                case 0: secret *= stock[i].price; break;
+                case 1: secret /= stock[i].price; break;
             }
         }
     return secret;
@@ -71,7 +70,7 @@ int main(void)
             secret = secret * 10 + (buf[i] & 15);
             ++count;
         }
-    printf("%s = %lld\n", buf, secret);
+    printf("Part 1: %lld\n", buf, secret);  // 6361428769
 
     return 0;
 }
