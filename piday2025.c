@@ -3,7 +3,7 @@
  * https://www.reddit.com/r/adventofcode/comments/1jb2eis/pi_coding_quest_2025/
  */
 
-#include <stdio.h>   // printf, sprintf, sscanf, FILE, fopen, fclose
+#include <stdio.h>   // printf, sprintf, sscanf, FILE, fopen, fclose, fgets, fgetc
 #include <stdlib.h>  // qsort
 #include <string.h>  // strstr
 #include <math.h>    // round
@@ -12,15 +12,20 @@
 
 #define ALPHLEN ('Z' - 'A' + 1)
 
-// Data file specification
+// Data file specification part 1
 #define FNAME "piday2025.txt"
 #define MAXDAYS 30
 #define LINELEN 64
 #define FIELD1   0  // column index of fixed width data
 #define FIELD2  13
 #define FIELD3  32
+#define PRECIS 100  // price precision (= factor to get integer)
 
-// Pi with 32 digits (= 31 decimals)
+// Cipher map specification part 2
+#define FNAME2 "piday2025-2.txt"
+#define MAPLEN 256
+
+// First 32 digits (= 31 decimals) of pi
 static const char *pi32 = "31415926535897932384626433832795";
 
 typedef struct stock {
@@ -30,11 +35,16 @@ typedef struct stock {
     char ticker[8];
 } Stock;
 
+// Part 1
 static Stock stock[MAXDAYS];
 static Stock *manip[MAXDAYS];  // pointers to manipulated stock
 static Stock *clean[MAXDAYS];  // pointers to clean stock
+static int maniplen, cleanlen;
+
+// Part 2
+static char ciphermap[MAPLEN];
 static Stock *phrase[MAXDAYS];
-static int maniplen, cleanlen, phraselen;
+static int phraselen;
 
 static int parse(const char *fname)
 {
@@ -48,11 +58,20 @@ static int parse(const char *fname)
         sscanf(&line[FIELD1], "%d" , &stock[n].day);
         sscanf(&line[FIELD2], "%lf", &stock[n].price);
         sscanf(&line[FIELD3], "%4s", stock[n].ticker);  // max len: 4+1=5 chars
-        stock[n].key = (int)round(stock[n].price * 100);  // max len: 3+2=5 digits
+        stock[n].key = (int)round(stock[n].price * PRECIS);  // max len: 3+2=5 digits
         sprintf(stock[n].digits, "%d", stock[n].key);  // max len: 5+1=6 chars
     }
     fclose(f);
     return n;
+}
+static void parse2(const char *fname)
+{
+    FILE *f = fopen(fname, "r");
+    if (!f) return;
+    for (int i = 0, c = fgetc(f); i < 256 && c >= 0; c = fgetc(f))
+        if (c >= 'A' && c <= 'Z')
+            ciphermap[i++] = c;
+    fclose(f);
 }
 
 static int64_t secret(const int days)
@@ -98,10 +117,12 @@ static inline void shift(char *str, const int key)
         *str = 'A' + (*str - 'A' + key) % ALPHLEN;
 }
 
+// Qsort helper function.
+// p and q are pointers to stock pointers
 static int cmp_day(const void *p, const void *q)
 {
-    const int a = ((const Stock *const)p)->day;
-    const int b = ((const Stock *const)q)->day;
+    const int a = (*(const Stock **)p)->day;
+    const int b = (*(const Stock **)q)->day;
     if (a < b) return -1;
     if (a > b) return  1;
     return 0;
@@ -109,30 +130,24 @@ static int cmp_day(const void *p, const void *q)
 
 int main(void)
 {
+    // Part 1
     int stocklen = parse(FNAME);
     printf("Part 1: %lld\n", secret(stocklen));  // 6361428769
 
-    FILE *f = fopen("piday2025-2.txt", "r");
-    if (!f) return 2;
-    char ciphermap[256];
-    for (int i = 0, c = fgetc(f); i < 256 && c >= 0; c = fgetc(f))
-        if (c >= 'A' && c <= 'Z')
-            ciphermap[i++] = c;
-    fclose(f);
-
+    // Part 2
+    parse2(FNAME2);  // read cipher map file
     for (int i = 0; i < maniplen; ++i) {
         shift(manip[i]->ticker, manip[i]->key);  // shift ticker names of manipulated stock
         for (int j = 0; j < cleanlen; ++j)
-        if (!strcmp(manip[i]->ticker, clean[j]->ticker)) {  // match shifted names to clean stock names
-            phrase[phraselen++] = clean[j];
-            break;
-        }
+            if (!strcmp(manip[i]->ticker, clean[j]->ticker)) {  // match shifted names to clean stock names
+                phrase[phraselen++] = clean[j];  // save pointer to new array
+                break;
+            }
     }
-    qsort(phrase, phraselen, sizeof *phrase, cmp_day);
-
+    qsort(phrase, phraselen, sizeof *phrase, cmp_day);  // sort matched clean stock by day(!!!)
     printf("Part 2: ");
     for (int i = 0; i < phraselen; ++i)
-        fputc(ciphermap[phrase[i]->key % 256], stdout);
+        fputc(ciphermap[phrase[i]->key % MAPLEN], stdout);
     printf("\n");  // GOODPIDAY
 
     return 0;
