@@ -11,7 +11,7 @@
  * https://mastodon.social/@ednl
  */
 
-#include <stdlib.h>  // malloc
+#include <stdlib.h>  // malloc, free
 #include "combinations.h"
 
 // Successive calls give different combinations of k indices
