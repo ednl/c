@@ -1,35 +1,46 @@
 // https://cs50.harvard.edu/x/psets/2/substitution/
 #include <stdio.h>
 #include <stdbool.h>
-#include <ctype.h>
+#include <ctype.h>   // isupper, islower, toupper, tolower
+#include <stddef.h>  // ptrdiff_t
+#include <string.h>  // strchr
 
-#define KEYLEN ('Z' - 'A' + 1)
 #define BUFLEN 256
+
+static const char alphabet[] = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
+static const unsigned keylen = sizeof alphabet - 1;
 
 static bool isvalidkey(const char *key)
 {
-    bool set[KEYLEN] = {0};
+    bool seen[keylen] = {0};
     int len = 0;
-    for (const char *c = key; *c; ++c, ++len) {
-        int i = -1;  // invalid value
-        if (isupper(*c))
-            i = *c - 'A';
-        else if (islower(*c))
-            i = *c - 'a';
-        if (i < 0 || i >= KEYLEN || set[i])
+    for (char *letter; *key; ++key, ++len) {
+        if (!(letter = strchr(alphabet, toupper(*key))))
+            return false;  // every letter in key must be in alphabet
+        ptrdiff_t pos = letter - alphabet;
+        if (seen[pos])
             return false;
-        set[i] = true;
+        seen[pos] = true;
     }
-    return len == KEYLEN;
+    return len == keylen;
 }
 
-static char encrypt(const char *key, const char c)
+static void encrypt(char *txt, const char *key)
 {
-    if (isupper(c))
-        return toupper(key[c - 'A']);
-    if (islower(c))
-        return tolower(key[c - 'a']);
-    return c;
+    for (; *txt; ++txt) {
+        if (*txt == '\n') {
+            *txt = '\0';
+            return;
+        }
+        const char *letter = strchr(alphabet, toupper(*txt));
+        if (!letter)
+            continue;
+        const char subst = key[letter - alphabet];
+        if (isupper(*txt))
+            *txt = toupper(subst);
+        else if (islower(*txt))
+            *txt = tolower(subst);
+    }
 }
 
 int main(int argc, char *argv[])
@@ -46,9 +57,7 @@ int main(int argc, char *argv[])
     char buf[BUFLEN] = {0};
     printf("plaintext:  ");
     fgets(buf, sizeof buf, stdin);
-    printf("ciphertext: ");
-    for (const char *c = buf; isprint(*c); ++c)
-        fputc(encrypt(key, *c), stdout);
-    fputc('\n', stdout);
+    encrypt(buf, key);
+    printf("ciphertext: %s\n", buf);
     return 0;
 }
