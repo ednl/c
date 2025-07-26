@@ -8,11 +8,10 @@
 #define BUFLEN 256
 
 static const char alphabet[] = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
-static const unsigned keylen = sizeof alphabet - 1;
 
 static bool isvalidkey(const char *key)
 {
-    bool seen[keylen] = {0};  // not a VLA
+    bool seen[sizeof alphabet - 1] = {0};
     int len = 0;
     for (char *letter; *key; ++key, ++len) {
         if (!(letter = strchr(alphabet, toupper(*key))))
@@ -22,7 +21,7 @@ static bool isvalidkey(const char *key)
             return false;
         seen[pos] = true;
     }
-    return len == keylen;
+    return len == sizeof alphabet - 1;  // don't count string terminator
 }
 
 static char *encrypt(char *txt, const char *key)
