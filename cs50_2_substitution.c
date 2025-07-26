@@ -12,12 +12,12 @@ static const unsigned keylen = sizeof alphabet - 1;
 
 static bool isvalidkey(const char *key)
 {
-    bool seen[keylen] = {0};
+    bool seen[keylen] = {0};  // not a VLA
     int len = 0;
     for (char *letter; *key; ++key, ++len) {
         if (!(letter = strchr(alphabet, toupper(*key))))
             return false;  // every letter in key must be in alphabet
-        ptrdiff_t pos = letter - alphabet;
+        const ptrdiff_t pos = letter - alphabet;
         if (seen[pos])
             return false;
         seen[pos] = true;
@@ -25,39 +25,42 @@ static bool isvalidkey(const char *key)
     return len == keylen;
 }
 
-static void encrypt(char *txt, const char *key)
+static char *encrypt(char *txt, const char *key)
 {
-    for (; *txt; ++txt) {
-        if (*txt == '\n') {
-            *txt = '\0';
-            return;
-        }
-        const char *letter = strchr(alphabet, toupper(*txt));
+    for (char *c = txt; *c; ++c) {
+        const char *letter = strchr(alphabet, toupper(*c));
         if (!letter)
             continue;
         const char subst = key[letter - alphabet];
-        if (isupper(*txt))
-            *txt = toupper(subst);
-        else if (islower(*txt))
-            *txt = tolower(subst);
+        if (isupper(*c))
+            *c = toupper(subst);
+        else if (islower(*c))
+            *c = tolower(subst);
     }
+    return txt;
 }
 
 int main(int argc, char *argv[])
 {
-    if (argc != 2) {
+    if (argc != 2) {  // must provide exactly 1 command line argument
         fprintf(stderr, "Usage: %s <key>\n", argv[0]);
         return 1;
     }
     const char *key = argv[1];
-    if (!isvalidkey(key)) {
+    if (!isvalidkey(key)) {  // must contain all letters once
         fprintf(stderr, "Invalid key.\n");
-        return 1;
+        return 2;
     }
-    char buf[BUFLEN] = {0};
+    char buf[BUFLEN] = {0};  // init to zero for completeness check
     printf("plaintext:  ");
-    fgets(buf, sizeof buf, stdin);
-    encrypt(buf, key);
-    printf("ciphertext: %s\n", buf);
+    if (!fgets(buf, sizeof buf, stdin)) {
+        fprintf(stderr, "Input error.\n");
+        return 3;
+    }
+    if (buf[BUFLEN - 2] && buf[BUFLEN - 2] != '\n') {  // must fit in buf
+        fprintf(stderr, "Incomplete input.\n");
+        return 4;
+    }
+    printf("ciphertext: %s", encrypt(buf, key));  // result still has '\n'
     return 0;
 }
