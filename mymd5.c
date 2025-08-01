@@ -4,15 +4,12 @@
 #include "mymd5.h"
 
 // Single hex character from value [0..15], hopefully fast
-static char hexc(const uint8_t val)
+static inline char hexc(const uint8_t val)
 {
     return "0123456789abcdef"[val];
 }
 
-// Ref.: https://en.wikipedia.org/wiki/MD5#Algorithm
-//   message must be null terminated string of any length
-//   digest buffer size must be >= 33 (32 hex characters + NUL)
-void mymd5(const char* const message, char* const digest)
+void mymd5(const char * const message, char * const digest)
 {
     static const uint32_t rot[64] = {
         7, 12, 17, 22,  7, 12, 17, 22,  7, 12, 17, 22,  7, 12, 17, 22,
@@ -41,7 +38,7 @@ void mymd5(const char* const message, char* const digest)
     uint32_t sum[4] = {0x67452301, 0xefcdab89, 0x98badcfe, 0x10325476};
 
     uint64_t msglen = 0;  // message length in bytes (later in bits mod 2^64)
-    const char* c = message;
+    const char *c = message;
     bool padded = false, terminated = false;
 
     // for each 512-bit (64-byte) chunk of padded message do
@@ -61,7 +58,7 @@ void mymd5(const char* const message, char* const digest)
                 padded = true;
             }
             if (chunklen <= 56) {
-                // Store length of original message *in bits* in last 64 bits of chunk (little-endian!)
+                // Store length of original message *in bits *in last 64 bits of chunk (little-endian!)
                 chunklen = 56;
                 msglen <<= 3;  // byte count is now bit count (mod 2^64)
                 while (msglen) {
@@ -116,47 +113,34 @@ void mymd5(const char* const message, char* const digest)
     }
 
     // Save hex digest[0..31]
-    char* d = digest;
+    char *d = digest;
     for (int i = 0; i < 4; ++i)
         for (int j = 0; j < 4; ++j) {
-            *d++ = hexc(sum[i] >>  4 & 0xf);  // high to low prec: shift, and
-            *d++ = hexc(sum[i]       & 0xf);
+            *d++ = hexc(sum[i] >> 4 & 0xf);  // high to low prec: shift, and
+            *d++ = hexc(sum[i]      & 0xf);
             sum[i] >>= 8;
         }
     *d = '\0';  // digest[32] = NUL
 }
 
-// Return string pointer to md5 hex digest of message
-//   message must be null terminated string of any length
-// NB: not thread-safe because it uses a single static buffer
-char* mymd5_tostr(const char* const message)
+char * mymd5_tostr(const char * const message)
 {
     static char digest[64];
     mymd5(message, digest);
     return digest;
 }
 
-// Print md5 hex digest of message to stdout
-//   message must be null terminated string of any length
-// NB: not thread-safe because mymd5_str() uses a single static buffer
-void mymd5_print(const char* const message)
+void mymd5_print(const char * const message)
 {
     puts(mymd5_tostr(message));
 }
 
-// Transform message to md5 hex digest in-place
-//   message must be null terminated string of any length
-//   message buffer size must be >= 33 (32 hex characters + NUL)
-void mymd5_inplace(char* const message)
+void mymd5_inplace(char * const message)
 {
     mymd5(message, message);
 }
 
-// Transform message to md5 hex digest in-place, stretched N times
-//   message must be null terminated string of any length
-//   message buffer size must be >= 33 (32 hex characters + NUL)
-//   stretch should be > 0 and not very large
-void mymd5_stretch(char* const message, const int n)
+void mymd5_stretch(char * const message, const int n)
 {
     for (int i = 0; i < n; ++i)
         mymd5(message, message);
