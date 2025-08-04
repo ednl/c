@@ -1,8 +1,20 @@
 #include <stdio.h>
-#include <stdlib.h>
-#include <math.h>
+#include <stdlib.h>  // random, srandom, RAND_MAX, qsort
+#include <math.h>    // sqrt, log
+#include <time.h>    // time
 #include <stdbool.h>
-#include <time.h>
+
+#define N 1024
+static float dist[N];
+
+static int float_desc(const void *p, const void *q)
+{
+    const float a = *(const float *)p;
+    const float b = *(const float *)q;
+    if (a < b) return +1;
+    if (a > b) return -1;
+    return 0;
+}
 
 double gaussian(double mean, double stddev)
 {
@@ -27,20 +39,19 @@ double gaussian(double mean, double stddev)
 int main(void)
 {
     srandom(time(NULL));
-    int bin[20] = {0};
-    for (int i = 0; i < 750; ++i) {
-        double km = gaussian(100, 25);
-        int j = (int)round(km / 10.0);
-        if (j <  0) j =  0;
-        if (j > 19) j = 19;
-        bin[j]++;
-        // printf("%2d %5.1f => %2d\n", i, km, j);
+    for (int i = 0; i < N; ++i) {
+        float km = gaussian(100, 50);
+        if (km < 0)
+            km = 0;
+        dist[i] = km;
     }
-    for (int i = 0; i < 20; ++i) {
-        printf("%2d ", i);
-        for (int j = 0; j < bin[i]; ++j)
-            putc('*', stdout);
-        putc('\n', stdout);
+    qsort(dist, N, sizeof *dist, float_desc);
+    for (int i = 0; i < N; ++i) {
+        const int d = (int)trunc(dist[i]);
+        const int count = i + 1;
+        const int need = d - count;
+        if (need <= 10 && need >= -10)
+            printf("dist=%d count=%d need=%d\n", d, count, need);
     }
     return 0;
 }
