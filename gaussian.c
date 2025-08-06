@@ -2,7 +2,7 @@
 #include <stdlib.h>   // srandom, random, RAND_MAX, qsort, NULL
 #include <time.h>     // time
 #include <stdbool.h>  // bool, true, false
-#include <math.h>     // sqrt, log, truncf
+#include <math.h>     // sqrt, log
 
 #define DEBUG 0       // set to non-zero to show data
 
@@ -79,9 +79,9 @@ static int eddington(float *arr, const int len, const int margin)
     show(arr, len);
 #endif
     for (int i = 0, j; i < len; i = j) {
-        const int x = truncf(arr[i]);  // sample value is at least `x`
-        // Skip same (truncated) values
-        for (j = i + 1; j < len && truncf(arr[j]) == x; ++j);
+        const int x = arr[i];  // trunc: sample value is at least `x`
+        // Skip same values
+        for (j = i + 1; j < len && (int)arr[j] == x; ++j);
         // Eddington: value of at least `x` occurs `x` or more times
         if (j >= x) {
             printf("%3d : EDDINGTON\n", x);
