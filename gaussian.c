@@ -6,23 +6,23 @@
 
 #define DEBUG 0       // set to non-zero to show data
 
-#define KM_PER_MI 1.609344f
-#define MI_PER_KM (1 / KM_PER_MI)
+#define KM_PER_MI 1.609344f        // conversion factor mile to km
+#define MI_PER_KM (1 / KM_PER_MI)  // conversion factor km to mile
 
 #define N      100    // number of days
 #define MEAN   100.0  // average distance per day (km)
-#define STDDEV  50.0  // standard deviation (km)
-#define ALMOST   9    // threshold of attainable goal (km)
+#define STDDEV 100.0  // standard deviation (km)
+#define ALMOST 9      // threshold of attainable goal (km)
 
 static float data[N];
 
 #if DEBUG
-static void show(const float *a, const int n)
+static void show(const float *arr, const int len)
 {
-    for (int i = 0; i < n; ++i) {
+    for (int i = 0; i < len; ++i) {
         if (i && !(i % 10))
             putc('\n', stdout);
-        printf("%6.1f", a[i]);
+        printf("%6.1f", arr[i]);
     }
     putc('\n', stdout);
 }
@@ -68,25 +68,27 @@ static double gaussian(const double mean, const double stddev)
     return u * s * stddev + mean;
 }
 
-static int eddington(float *a, const int n, const int more)
+static int eddington(float *arr, const int len, const int margin)
 {
-    if (!a || n <= 0)
+    // sanity check
+    if (!arr || len <= 0)
         return -1;
-    qsort(a, n, sizeof *a, float_desc);
+    // sort descending
+    qsort(arr, len, sizeof *arr, float_desc);
 #if DEBUG
-    show(a, n);
+    show(arr, len);
 #endif
-    for (int i = 0, j; i < n; i = j) {
-        const int x = truncf(a[i]);  // sample value is at least `x`
+    for (int i = 0, j; i < len; i = j) {
+        const int x = truncf(arr[i]);  // sample value is at least `x`
         // Skip same (truncated) values
-        for (j = i + 1; j < n && truncf(a[j]) == x; ++j);
+        for (j = i + 1; j < len && truncf(arr[j]) == x; ++j);
         // Eddington: value of at least `x` occurs `x` or more times
-        if (x <= j) {
+        if (j >= x) {
             printf("%3d : EDDINGTON\n", x);
             return x;  // stop at max Eddington
         }
         // Need a few more samples of (at least) `x` to make Eddington
-        if (x - j <= more)
+        if (x - j <= margin)
             printf("%3d : need %d more\n", x, x - j);
     }
     return 0;
@@ -111,14 +113,15 @@ int main(void)
     const int almost = roundf(ALMOST * MI_PER_KM);
     for (int i = 0; i < N; ++i)
         data[i] *= MI_PER_KM;
+
+    // find max Eddington number in data as miles
     hr();
     printf("Miles (max +%d mi)\n", almost);
     hr();
     const int mi = eddington(data, N, almost);
 
+    // compare Eddington numbers
     hr();
     printf("km/mi = %.3f\n", KM_PER_MI);
     printf("%d/%d = %.3f\n", km, mi, (double)km / mi);
-
-    return 0;
 }
