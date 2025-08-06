@@ -105,7 +105,7 @@ int main(void)
 
     // find max Eddington number in data as kilometres
     hr();
-    printf("Kilometres (max +%d km)\n", ALMOST);
+    printf("Kilometres (max %d more)\n", ALMOST);
     hr();
     const int km = eddington(data, N, ALMOST);
 
@@ -116,7 +116,7 @@ int main(void)
 
     // find max Eddington number in data as miles
     hr();
-    printf("Miles (max +%d mi)\n", almost);
+    printf("Miles (max %d more)\n", almost);
     hr();
     const int mi = eddington(data, N, almost);
 
