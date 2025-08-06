@@ -1,12 +1,17 @@
 #include <stdio.h>
-#include <stdlib.h>  // random, srandom, RAND_MAX, qsort
-#include <math.h>    // sqrt, log
-#include <time.h>    // time
-#include <stdbool.h>
+#include <stdlib.h>   // srandom, random, RAND_MAX, qsort, NULL
+#include <time.h>     // time
+#include <stdbool.h>  // bool, true, false
+#include <math.h>     // sqrt, log
 
-#define N 1024
-static float dist[N];
+#define N      100
+#define MEAN   100.0
+#define STDDEV  50.0
+#define ALMOST  10
 
+static float data[N];
+
+// Qsort helper: sort floats in descending order.
 static int float_desc(const void *p, const void *q)
 {
     const float a = *(const float *)p;
@@ -16,7 +21,11 @@ static int float_desc(const void *p, const void *q)
     return 0;
 }
 
-double gaussian(double mean, double stddev)
+// Marsaglia polar method for generating a pair of standard normal
+// random values (= polar variant of the Box-Muller method).
+// https://en.wikipedia.org/wiki/Marsaglia_polar_method
+// NB: not thread-safe because of local static variables.
+double gaussian(const double mean, const double stddev)
 {
     static double spare = 0;
     static bool hasspare = false;
@@ -38,20 +47,26 @@ double gaussian(double mean, double stddev)
 
 int main(void)
 {
+    // Generate standard normal float data >= 0
     srandom(time(NULL));
     for (int i = 0; i < N; ++i) {
-        float km = gaussian(100, 50);
-        if (km < 0)
-            km = 0;
-        dist[i] = km;
+        float sample = gaussian(MEAN, STDDEV);
+        data[i] = sample >= 0 ? sample : 0;
     }
-    qsort(dist, N, sizeof *dist, float_desc);
-    for (int i = 0; i < N; ++i) {
-        const int d = (int)trunc(dist[i]);
-        const int count = i + 1;
-        const int need = d - count;
-        if (need <= 10 && need >= -10)
-            printf("dist=%d count=%d need=%d\n", d, count, need);
+
+    // Find max Eddington number in data.
+    qsort(data, N, sizeof *data, float_desc);
+    for (int i = 0, j; i < N; ++i) {
+        const int x = trunc(data[i]);  // sample value is at least `x`
+        // Skip same (truncated) values
+        for (j = i + 1; j < N && trunc(data[j]) == x; ++j);
+        // Eddington: value of at least `x` occurs `x` or more times
+        if (x <= j) {
+            printf("%3d : EDDINGTON\n", x);
+            break;  // stop at max Eddington because sorted descending
+        }
+        // Need a few more samples of (at least) `x` to make Eddington
+        if (x - j < ALMOST)
+            printf("%3d : need %d more\n", x, x - j);
     }
-    return 0;
 }
