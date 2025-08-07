@@ -45,7 +45,7 @@ static int float_desc(const void *p, const void *q)
 }
 
 // Marsaglia polar method for generating a pair of standard normal
-// random values (= polar variant of the Box-Muller method)
+// random values (= polar variant of the Box-Muller method).
 // https://en.wikipedia.org/wiki/Marsaglia_polar_method
 // NB: not thread-safe because of local static variables
 static double gaussian(const double mean, const double stddev)
@@ -68,6 +68,11 @@ static double gaussian(const double mean, const double stddev)
     return u * s * stddev + mean;
 }
 
+// "Maximum number E such that the cyclist has cycled
+// at least E miles on at least E days."
+// Return value of E in arbitrary units from `arr` and
+// report higher numbers that are close by `margin`.
+// https://en.wikipedia.org/wiki/Arthur_Eddington#Eddington_number_for_cycling
 static int eddington(float *arr, const int len, const int margin)
 {
     // sanity check
@@ -105,20 +110,19 @@ int main(void)
 
     // find max Eddington number in data as kilometres
     hr();
-    printf("Kilometres (max %d more)\n", ALMOST);
+    puts("Kilometres");
     hr();
     const int km = eddington(data, N, ALMOST);
 
     // convert to miles
-    const int almost = roundf(ALMOST * MI_PER_KM);
     for (int i = 0; i < N; ++i)
         data[i] *= MI_PER_KM;
 
     // find max Eddington number in data as miles
     hr();
-    printf("Miles (max %d more)\n", almost);
+    puts("Miles");
     hr();
-    const int mi = eddington(data, N, almost);
+    const int mi = eddington(data, N, ALMOST);
 
     // compare Eddington numbers
     hr();
