@@ -6,23 +6,33 @@
  *     do not nest.
  */
 
-#include <stdio.h>
+#include <stdio.h>   // fopen, fclose, fgetc, fputc
+#include <unistd.h>  // isatty, fileno
 
 typedef enum state {
-    COMMENT, CODE, STRCONST, CHARCONST
+    COMMENT, CODE, STRLIT, CHARLIT
 } State;
+
+// Backslash-escape in string and character literals
+static void escape(const int cur, int *const next, FILE *f)
+{
+    if (cur == '\\' && *next != EOF) {
+        fputc(*next, stdout);
+        *next = fgetc(f);
+    }
+}
 
 int main(int argc, char *argv[])
 {
-    if (argc != 2) {
-        fprintf(stderr, "Usage: %s <file with /* comments */>\n", argv[0]);
+    FILE *f = NULL;
+    if (!isatty(fileno(stdin)))
+        // Input is pipe or redirect to stdin of this program
+        f = stdin;
+    else if (argc == 2)
+        // Command line argument
+        f = fopen(argv[1], "r");
+    if (!f)
         return 1;
-    }
-    FILE *f = fopen(argv[1], "r");
-    if (!f) {
-        fprintf(stderr, "File not found: \"%s\"\n", argv[1]);
-        return 2;
-    }
 
     State state = CODE;
     int cur, next = fgetc(f);
@@ -42,31 +52,28 @@ int main(int argc, char *argv[])
             } else {
                 fputc(cur, stdout);
                 if (cur == '"')
-                    state = STRCONST;
+                    state = STRLIT;
                 else if (cur == '\'')
-                    state = CHARCONST;
+                    state = CHARLIT;
             }
             break;
-        case STRCONST:
+        case STRLIT:
             fputc(cur, stdout);
             if (cur == '"')
                 state = CODE;
-            else if (cur == '\\' && next != EOF) {  // backslash-escape
-                fputc(next, stdout);
-                next = fgetc(f);
-            }
+            else
+                escape(cur, &next, f);
             break;
-        case CHARCONST:
+        case CHARLIT:
             fputc(cur, stdout);
             if (cur == '\'')
                 state = CODE;
-            else if (cur == '\\' && next != EOF) {  // backslash-escape
-                fputc(next, stdout);
-                next = fgetc(f);
-            }
+            else
+                escape(cur, &next, f);
             break;
         }
     }
-    fclose(f);
+    if (f != stdin)
+        fclose(f);
     return 0;
 }
