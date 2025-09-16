@@ -9,7 +9,7 @@
 #include <stdio.h>
 
 typedef enum state {
-    CODE, STRCONST, CHARCONST, COMMENT, SKIP2CODE
+    COMMENT, CODE, STRCONST, CHARCONST
 } State;
 
 int main(int argc, char *argv[])
@@ -25,36 +25,47 @@ int main(int argc, char *argv[])
     }
 
     State state = CODE;
-    int cur, prev = EOF, next = fgetc(f);
+    int cur, next = fgetc(f);
     while ((cur = next) != EOF) {
         next = fgetc(f);
-        switch (cur) {
-            case '/':
-                if (state == CODE && next == '*') {
-                    state = COMMENT;
-                    cur = fgetc(f);  // cur might be EOF now
-                    next = cur == EOF ? EOF : fgetc(f);
-                } else if (state == COMMENT && prev == '*')
-                    state = SKIP2CODE;
-                break;
-            case '"':
-                if (state == CODE)
+        switch (state) {
+        case COMMENT:
+            if (cur == '*' && next == '/') {
+                state = CODE;
+                next = fgetc(f);  // skip ahead or slash will be printed
+            }
+            break;
+        case CODE:
+            if (cur == '/' && next == '*') {
+                state = COMMENT;
+                next = fgetc(f);  // skip ahead or '/*/' will fail
+            } else {
+                fputc(cur, stdout);
+                if (cur == '"')
                     state = STRCONST;
-                else if (state == STRCONST && prev != '\\')
-                    state = CODE;
-                break;
-            case '\'':
-                if (state == CODE)
+                else if (cur == '\'')
                     state = CHARCONST;
-                else if (state == CHARCONST && prev != '\\')
-                    state = CODE;
-                break;
-        }
-        if (state == SKIP2CODE)
-            state = CODE;
-        else if (state != COMMENT && cur != EOF)
+            }
+            break;
+        case STRCONST:
             fputc(cur, stdout);
-        prev = cur;
+            if (cur == '"')
+                state = CODE;
+            else if (cur == '\\' && next != EOF) {  // backslash-escape
+                fputc(next, stdout);
+                next = fgetc(f);
+            }
+            break;
+        case CHARCONST:
+            fputc(cur, stdout);
+            if (cur == '\'')
+                state = CODE;
+            else if (cur == '\\' && next != EOF) {  // backslash-escape
+                fputc(next, stdout);
+                next = fgetc(f);
+            }
+            break;
+        }
     }
     fclose(f);
     return 0;
