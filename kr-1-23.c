@@ -6,73 +6,70 @@
  *     do not nest.
  */
 
-#include <stdio.h>   // fopen, fclose, fgetc, fputc
-#include <unistd.h>  // isatty, fileno
+#include <stdio.h>   // fopen, fclose, fgets, fputc
 
 typedef enum state {
-    COMMENT, CODE, STRLIT, CHARLIT
+    SOURCE, OLDCOM, NEWCOM, STRLIT, CHRLIT
 } State;
-
-// Backslash-escape in string and character literals
-static void escape(const int cur, int *const next, FILE *f)
-{
-    if (cur == '\\' && *next != EOF) {
-        fputc(*next, stdout);
-        *next = fgetc(f);
-    }
-}
 
 int main(int argc, char *argv[])
 {
-    FILE *f = NULL;
-    if (!isatty(fileno(stdin)))
-        // Input is pipe or redirect to stdin of this program
-        f = stdin;
-    else if (argc == 2)
-        // Command line argument
-        f = fopen(argv[1], "r");
-    if (!f)
-        return 1;
-
-    State state = CODE;
-    int cur, next = fgetc(f);
-    while ((cur = next) != EOF) {
-        next = fgetc(f);
-        switch (state) {
-        case COMMENT:
-            if (cur == '*' && next == '/') {
-                state = CODE;
-                next = fgetc(f);  // skip ahead or slash will be printed
-            }
-            break;
-        case CODE:
-            if (cur == '/' && next == '*') {
-                state = COMMENT;
-                next = fgetc(f);  // skip ahead or '/*/' will fail
-            } else {
-                fputc(cur, stdout);
-                if (cur == '"')
-                    state = STRLIT;
-                else if (cur == '\'')
-                    state = CHARLIT;
-            }
-            break;
-        case STRLIT:
-            fputc(cur, stdout);
-            if (cur == '"')
-                state = CODE;
-            else
-                escape(cur, &next, f);
-            break;
-        case CHARLIT:
-            fputc(cur, stdout);
-            if (cur == '\'')
-                state = CODE;
-            else
-                escape(cur, &next, f);
-            break;
+    FILE *f;
+    if (argc > 1) {  // command line argument(s)
+        if (!(f = fopen(argv[1], "r"))) {
+            fprintf(stderr, "File not found: \"%s\"\n", argv[1]);
+            return 1;
         }
-    }
+    } else  // input is pipe or redirect to stdin, or manual input
+        f = stdin;
+
+    State state = SOURCE;
+    char line[BUFSIZ];
+    while (fgets(line, sizeof line, f))
+        for (int i = 0; line[i]; i++)
+            switch (state) {
+            case SOURCE:
+                if (line[i] == '/' && line[i + 1] == '*') {
+                    state = OLDCOM;
+                    i++;
+                } else if (line[i] == '/' && line[i + 1] == '/') {
+                    state = NEWCOM;
+                    i++;
+                } else {
+                    fputc(line[i], stdout);
+                    if (line[i] == '"')
+                        state = STRLIT;
+                    else if (line[i] == '\'')
+                        state = CHRLIT;
+                }
+                break;
+            case OLDCOM:
+                if (line[i] == '*' && line[i + 1] == '/')
+                    state = SOURCE;
+                    i++;
+                break;
+            case NEWCOM:
+                if (line[i] == '\n') {
+                    fputc(line[i], stdout);
+                    state = SOURCE;
+                }
+                break;
+            case STRLIT:
+                fputc(line[i], stdout);
+                if (line[i] == '"')
+                    state = SOURCE;
+                else if (line[i] == '\\')
+                    fputc(line[++i], stdout);
+                break;
+            case CHRLIT:
+                fputc(line[i], stdout);
+                if (line[i] == '\'')
+                    state = SOURCE;
+                else if (line[i] == '\\')
+                    fputc(line[++i], stdout);
+                break;
+            }
+
     if (f != stdin)
         fclose(f);
     return 0;
