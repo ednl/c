@@ -15,8 +15,9 @@ static int hw_put(int c)
 }
 
 // Output a number (int, may be negative)
-// Return: number of bytes successfully written
-static int printnum(int num, const int base, const int term)
+// Terminate by outputting end if end >= 0
+// Return: number of bytes successfully written, incl. end
+static int printnum(int num, const int base, const int end)
 {
     if (base < MINBASE || base > MAXBASE)
         return 0;
@@ -34,8 +35,8 @@ static int printnum(int num, const int base, const int term)
     } while (num > 0 && i < MAXLEN);
     while (i > 0)
         len += hw_put(buf[--i]);
-    if (term >= 0)
-        len += hw_put(term);  // change if you don't want to count the terminator
+    if (end >= 0)
+        len += hw_put(end);  // change if you don't want to count the terminator
     return len;
 }
 
