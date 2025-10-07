@@ -10,8 +10,9 @@
  *           = (x_n ^2 + a)/(2.x_n)
  *           = (x_n + a/x_n)/2
  */
-#include <stdio.h>
-#include <math.h>
+
+#include <stdio.h>  // printf, fgets, sscanf
+#include <math.h>   // fabs
 
 static double ask_dbl_pos(const char *msg)
 {
