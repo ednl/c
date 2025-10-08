@@ -5,7 +5,7 @@
  *   => x^2 - a = 0
  * Solve f(x)=0 for f(x) = x^2 - a
  *
- * Newton-Raphson
+ * Newton-Raphson iteration
  * https://en.wikipedia.org/wiki/Newton%27s_method
  * x_n+1 = x_n - f(x_n) / f'(x_n)
  *       = x_n - (x_n ^2 - a) / (2.x_n)
@@ -32,7 +32,7 @@ int main(void)
 {
     double val  = ask_dbl_pos("Positive number ");
     double root = ask_dbl_pos("First sqrt guess");
-    const double ref = sqrt(val);
+    const double ref = sqrt(val);  // library function
     const double prec = 1e-5;  // arbitrary cut-off
     int step = 0;
     for (double diff = 0, goal = 0; diff >= goal; ++step) {
@@ -42,7 +42,7 @@ int main(void)
         root = next;
     }
     printf("Newton-Raphson   : %.15e (%d steps)\n", root, step);
-    printf("sqrt function    : %.15e\n", ref);
+    printf("math.h sqrt()    : %.15e\n", ref);
     printf("error            : %+.2e\n", root - ref);
     return 0;
 }
