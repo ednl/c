@@ -14,14 +14,14 @@
  */
 
 #include <stdio.h>  // printf, fgets, sscanf
-#include <math.h>   // fabs
+#include <math.h>   // fabs, sqrt
 
 static double ask_dbl_pos(const char *msg)
 {
     char buf[BUFSIZ] = {0};
     double x = 0;
     for (int res = 0; res != 1 || x <= 0; ) {
-        printf("%s: ", msg);
+        printf("%s : ", msg);
         if (fgets(buf, sizeof buf, stdin))
             res = sscanf(buf, "%lf", &x);
     }
@@ -30,16 +30,19 @@ static double ask_dbl_pos(const char *msg)
 
 int main(void)
 {
-    const double prec = 1e-5;  // arbitrary precision cut-off
-    double val  = ask_dbl_pos("Positive number");
+    double val  = ask_dbl_pos("Positive number ");
     double root = ask_dbl_pos("First sqrt guess");
+    const double ref = sqrt(val);
+    const double prec = 1e-5;  // arbitrary cut-off
     int step = 0;
     for (double diff = 0, goal = 0; diff >= goal; ++step) {
         const double next = (root + val / root) / 2;
         diff = fabs(next - root);
-        goal = fabs(prec * root);  // fabs unnecessary for sqrt function
+        goal = prec * root;  // root is always positive
         root = next;
     }
-    printf("After %d steps: sqrt(%.1f) = %.8f\n", step, val, root);
+    printf("Newton-Raphson   : %.15e (%d steps)\n", root, step);
+    printf("sqrt function    : %.15e\n", ref);
+    printf("error            : %+.2e\n", root - ref);
     return 0;
 }
