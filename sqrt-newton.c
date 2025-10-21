@@ -15,12 +15,18 @@
 
 #include <stdio.h>  // printf, fgets, sscanf
 #include <math.h>   // fabs, sqrt
+#include <stdbool.h>
 
-static double ask_dbl_pos(const char *msg)
+static bool ispos(const double x)
+{
+    return x > 0;
+}
+
+static double ask_dbl(const char *msg, bool (*isvalid)(const double))
 {
     char buf[BUFSIZ] = {0};
     double x = 0;
-    for (int res = 0; res != 1 || x <= 0; ) {
+    for (int res = 0; res != 1 || !isvalid(x); ) {
         printf("%s : ", msg);
         if (fgets(buf, sizeof buf, stdin))
             res = sscanf(buf, "%lf", &x);
@@ -30,8 +36,8 @@ static double ask_dbl_pos(const char *msg)
 
 int main(void)
 {
-    double val  = ask_dbl_pos("Positive number ");
-    double root = ask_dbl_pos("First sqrt guess");
+    double val  = ask_dbl("Positive number ", ispos);
+    double root = ask_dbl("First sqrt guess", ispos);
     const double ref = sqrt(val);  // library function
     const double prec = 1e-5;  // arbitrary cut-off
     int step = 0;
