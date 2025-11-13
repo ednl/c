@@ -17,18 +17,29 @@
 
 #include <stdio.h>
 #include <stdlib.h>
+#include <stdbool.h>
 
 #define MAXLEN 100
 static int data[MAXLEN];
 
-static int cmp(const void *p, const void *q)
+// Map [0,1] -> [-1,+1]
+static inline int asc(const bool cmp)
+{
+    return 2 * cmp - 1;
+}
+
+// Compare two ints according to spec. Return:
+//   -1: sort a before b
+//   +1: sort b before a
+//    0: no action
+static int spec(const void *p, const void *q)
 {
     const int a = *(const int *)p;
     const int b = *(const int *)q;
-    const int odda = a & 1;
-    const int oddb = b & 1;
-    if (odda ^ oddb || a > b) return  odda * 2 - 1;
-    if (               a < b) return !odda * 2 - 1;
+    const bool aodd = a & 1;
+    const bool bodd = b & 1;
+    if (aodd ^ bodd || a > b) return asc( aodd);
+    if (               a < b) return asc(!aodd);
     return 0;
 }
 
@@ -43,7 +54,7 @@ int main(void)
     for (int num; inputlen > 0 && scanf("%d", &num) == 1; --inputlen)
         if (num >= 0)
             data[datalen++] = num;
-    qsort(data, datalen, sizeof *data, cmp);
+    qsort(data, datalen, sizeof *data, spec);
     for (int i = 0; i < datalen; ++i)
         printf("%d ", data[i]);
     printf("\n");
