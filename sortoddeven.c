@@ -18,8 +18,8 @@
 #include <stdio.h>
 #include <stdlib.h>
 
-#define N 100
-static int data[N];
+#define MAXLEN 100
+static int data[MAXLEN];
 
 static int cmp(const void *p, const void *q)
 {
@@ -27,8 +27,8 @@ static int cmp(const void *p, const void *q)
     const int b = *(const int *)q;
     const int odda = a & 1;
     const int oddb = b & 1;
-    if (odda ^ oddb || a > b) return odda * 2 - 1;
-    if (a < b) return (!odda) * 2 - 1;
+    if (odda ^ oddb || a > b) return  odda * 2 - 1;
+    if (               a < b) return !odda * 2 - 1;
     return 0;
 }
 
@@ -37,7 +37,7 @@ int main(void)
     int inputlen;
     if (scanf("%d", &inputlen) != 1)
         return 1;
-    if (inputlen < 1 || inputlen > N)
+    if (inputlen < 1 || inputlen > MAXLEN)
         return 2;
     int datalen = 0;
     for (int num; inputlen > 0 && scanf("%d", &num) == 1; --inputlen)
