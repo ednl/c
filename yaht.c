@@ -16,16 +16,15 @@
 #include <limits.h>    // INT_MAX
 #include <math.h>      // sqrt
 #ifdef TIMER
-#include "startstoptimer.h"
+    #include "startstoptimer.h"
 #endif
 
+// Simulation parameters (constants)
 #define DICE  5
+#define MAJOR ((DICE + 1) >> 1)  // at least half of all dice
 #define SIDES 6
 #define BATCH 10000
-#define ERROR 0.005
-
-// Half or more? => die value locked in
-#define MAJORITY ((DICE + 1) >> 1)
+#define ERROR 0.005  // run simulation until 2 significant decimals
 
 // Unbiased die-roll [0..N-1] using random()
 // Ref.: https://en.cppreference.com/w/c/numeric/random/rand
@@ -38,7 +37,7 @@ static unsigned roll(void)
     return x;
 }
 
-// Play one game until Yahtzee (=all dice have same value)
+// Play one game until "Yahtzee" (=all dice have same value)
 // Return number of throws needed
 static int play(void)
 {
@@ -52,12 +51,12 @@ static int play(void)
         for (int i = high; i < DICE; i++)
             bins[roll()]++;
         // Find or update highest count of any die value (pips)
-        if (high < MAJORITY) {
+        if (high < MAJOR) {
             // Switch is still possible
             for (int i = 0; i < SIDES; ++i)
                 if (bins[i] > high)
                     high = bins[(pips = i)];
-            if (high < MAJORITY) {
+            if (high < MAJOR) {
                 memset(bins, 0, sizeof bins);  // reset
                 if (high > 1)
                     bins[pips] = high;  // restore highest count
@@ -79,24 +78,26 @@ int main(void)
     // Seed random number generator
     srandom(time(NULL));
 
+    // Simulation progress variables
     uint64_t games = 0;  // simulation counter
     uint64_t sum = 0;    // total number of throws in all games
     uint64_t in3 = 0;    // games that ended in at most 3 throws
 
-    // Number of throws: running mean, unscaled variance, standard deviation
+    // Simulation goal: average number of throws until Yahtzee
+    // https://en.wikipedia.org/wiki/Algorithms_for_calculating_variance#Welford%27s_online_algorithm
     double mean = 0, M2 = 0, stddev;
 
     // Run simulation until standard deviation is small enough
     do {
-        // Single game wouldn't change stddev much, so save sqrt calculations
+        // A single game doesn't change stddev much, repeat many to save sqrt calculations
         for (int i = 0; i < BATCH; ++i) {
             games++;
             const int throws = play();
-            sum += throws;
             in3 += throws < 4;
-            const double estm = (double)sum / games;  // current estimate of the requested value
+            // current estimate of the requested value
+            sum += throws;
+            const double estm = (double)sum / games;
             // Update running mean and unscaled variance
-            // https://en.wikipedia.org/wiki/Algorithms_for_calculating_variance#Welford%27s_online_algorithm
             const double delta = estm - mean;
             mean += delta / games;
             M2 += delta * (estm - mean);
