@@ -3,13 +3,14 @@
  *     cc -std=c99 -Wall -Wextra -Wpedantic -O3 -march=native -mtune=native -o yahtc yaht.c
  */
 
-#include <stdio.h>   // printf
-#include <stdlib.h>  // srandom, random
-#include <time.h>    // time
-#include <string.h>  // memset
-#include <stdint.h>  // uint64_t
-#include <limits.h>  // INT_MAX
-#include <math.h>    // sqrt
+#include <stdio.h>     // printf
+#include <stdlib.h>    // srandom, random
+#include <time.h>      // time
+#include <string.h>    // memset
+#include <stdint.h>    // uint64_t
+#include <inttypes.h>  // PRIu64
+#include <limits.h>    // INT_MAX
+#include <math.h>      // sqrt
 
 #define DICE  5
 #define SIDES 6
@@ -95,7 +96,7 @@ int main(void)
         stddev = sqrt(M2 / games);
     } while (stddev >= ERROR);
 
-    printf("Yahtzee takes %.2f throws on average.\n", mean);
-    printf("At most three in %.2f percent of games.\n", (double)in3 / games * 100);
+    printf("Yahtzee takes %.2f throws on average in %"PRIu64" games.\n", mean, games);
+    printf("At most three throws in %.2f percent of games.\n", (double)in3 / games * 100);
     return 0;
 }
