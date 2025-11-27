@@ -1,6 +1,10 @@
 /**
  * Compile:
- *     cc -std=c99 -Wall -Wextra -Wpedantic -O3 -march=native -mtune=native -o yahtc yaht.c
+ *     cc -std=c99 -Wall -Wextra -Wpedantic yaht.c
+ * Enable timer:
+ *     cc -std=gnu23 -O3 -march=native -mtune=native -DTIMER startstoptimer.c yaht.c
+ * Get minimum runtime from timer output in bash:
+ *     m=999999;for((i=0;i<10000;++i));do t=$(./a.out|tail -n1|awk '{print $2}');((t<m))&&m=$t&&echo "$m ($i)";done
  */
 
 #include <stdio.h>     // printf
@@ -11,13 +15,16 @@
 #include <inttypes.h>  // PRIu64
 #include <limits.h>    // INT_MAX
 #include <math.h>      // sqrt
+#ifdef TIMER
+#include "startstoptimer.h"
+#endif
 
 #define DICE  5
 #define SIDES 6
 #define BATCH 10000
 #define ERROR 0.005
 
-// Half or better: no more switch
+// Half or more? => die value locked in
 #define MAJORITY ((DICE + 1) >> 1)
 
 // Unbiased die-roll [0..N-1] using random()
@@ -58,7 +65,7 @@ static int play(void)
                     high = 0;  // then re-roll with all dice
             }
         } else
-            // Majority reached so only look at this die value count
+            // Majority reached, so die value locked in
             high = bins[pips];
     }
     return throws;
@@ -66,6 +73,9 @@ static int play(void)
 
 int main(void)
 {
+#ifdef TIMER
+    starttimer();
+#endif
     // Seed random number generator
     srandom(time(NULL));
 
@@ -73,12 +83,12 @@ int main(void)
     uint64_t sum = 0;    // total number of throws in all games
     uint64_t in3 = 0;    // games that ended in at most 3 throws
 
-    // Number of tries: running mean, unscaled variance, standard deviation
+    // Number of throws: running mean, unscaled variance, standard deviation
     double mean = 0, M2 = 0, stddev;
 
     // Run simulation until standard deviation is small enough
     do {
-        // Single game wouldn't change stddev much
+        // Single game wouldn't change stddev much, so save sqrt calculations
         for (int i = 0; i < BATCH; ++i) {
             games++;
             const int throws = play();
@@ -98,5 +108,8 @@ int main(void)
 
     printf("Yahtzee takes %.2f throws on average in %"PRIu64" games.\n", mean, games);
     printf("At most three throws in %.2f percent of games.\n", (double)in3 / games * 100);
+#ifdef TIMER
+    printf("Time: %.0f ms\n", stoptimer_ms());
+#endif
     return 0;
 }
