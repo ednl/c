@@ -16,7 +16,7 @@ static uint32_t modpow(uint64_t base, uint64_t exponent, const uint64_t modulus)
             rem = (rem * base) % modulus;  // parentheses for clarity
         base = (base * base) % modulus;  // overflow if base >= 1<<32
     }
-    return rem;  // 0 <= r < 1<<32 because modulus <= 1<<32
+    return rem;  // 0 <= rem < 1<<32 because modulus <= 1<<32
 }
 
 int main(void)
