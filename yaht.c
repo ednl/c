@@ -1,97 +1,116 @@
-// Simulate throwing with dice repeatedly to determine
-// chance of 'Yahtzee' (5 the same) after 3 (or N) tries.
-//
-// By E. Dronkert https://github.com/ednl
+/**
+ * Compile:
+ *     cc -lm -std=c99 -Wall -Wextra -Wpedantic yaht.c
+ * Enable timer:
+ *     cc -lm -std=gnu23 -O3 -march=native -mtune=native -DTIMER startstoptimer.c yaht.c
+ * Get minimum runtime from timer output in bash:
+ *     m=999999;for((i=0;i<10000;++i));do t=$(./a.out|tail -n1|awk '{print $2}');((t<m))&&m=$t&&echo "$m ($i)";done
+ */
 
-#include <stdio.h>
-#include <stdlib.h>
-#include <time.h>
-#include <stdint.h>
+#include <stdio.h>     // printf
+#include <stdlib.h>    // srandom, random
+#include <time.h>      // time
+#include <string.h>    // memset
+#include <stdint.h>    // uint64_t
+#include <inttypes.h>  // PRIu64
+#include <limits.h>    // INT_MAX
+#include <math.h>      // sqrt
+#ifdef TIMER
+    #include "startstoptimer.h"
+#endif
 
+// Simulation parameters (constants)
 #define DICE  5
-#define MAJORITY ((DICE + 1) >> 1)
+#define MAJOR ((DICE + 1) >> 1)  // at least half of all dice
 #define SIDES 6
-#define TRIES 200
-#define GAMES (1000 * 1000)
-#define PERCT (GAMES / 100)
+#define BATCH 10000
+#define ERROR 0.005  // run simulation until 2 significant decimals
 
-// Histograms
-// use index [1..max] inclusive for both
-static int cast[SIDES] = {0};
-static int hist[TRIES] = {0};
-
-// One unbiased die roll [0..SIDES - 1]
-// Ref. man random / man arc4random
-static uint32_t roll(void)
+// Unbiased die-roll [0..N-1] using random()
+// Ref.: https://en.cppreference.com/w/c/numeric/random/rand
+static unsigned roll(void)
 {
-    // return random() / ((RAND_MAX + 1UL) / SIDES);
-    return arc4random_uniform(6);
+    unsigned long x;
+    do {
+        x = random() / ((RAND_MAX + 1ul) / SIDES);
+    } while (x == SIDES);
+    return x;
+}
+
+// Play one game until "Yahtzee" (=all dice have same value)
+// Return number of throws needed
+static int play(void)
+{
+    int bins[SIDES] = {0};  // histogram of dice values
+    int throws = 0;  // number of throws of the dice
+    int high = 0;  // highest count of one die value
+    int pips = 0;  // which die value has the highest count
+    while (high < DICE) {
+        throws++;
+        // Roll remaining dice
+        for (int i = high; i < DICE; i++)
+            bins[roll()]++;
+        // Find or update highest count of any die value (pips)
+        if (high < MAJOR) {
+            // Switch is still possible
+            for (int i = 0; i < SIDES; ++i)
+                if (bins[i] > high)
+                    high = bins[(pips = i)];
+            if (high < MAJOR) {
+                memset(bins, 0, sizeof bins);  // reset
+                if (high > 1)
+                    bins[pips] = high;  // restore highest count
+                else           // all different? (high=1)
+                    high = 0;  // then re-roll with all dice
+            }
+        } else
+            // Majority reached, so die value locked in
+            high = bins[pips];
+    }
+    return throws;
 }
 
 int main(void)
 {
-    // srandom(time(NULL));
-    int games = GAMES;
-    while (games--) {
-        // What value occurs most, how many times
-        int try = 0, best = 0, count = 0;
+#ifdef TIMER
+    starttimer();
+#endif
+    // Seed random number generator
+    srandom(time(NULL));
 
-        // Get 'yahtzee' in any number of tries
-        while (count < DICE) {
-            ++try;
+    // Simulation progress variables
+    uint64_t games = 0;  // simulation counter
+    uint64_t sum = 0;    // total number of throws in all games
+    uint64_t in3 = 0;    // games that ended in at most 3 throws
 
-            // Reset die count
-            if (count < MAJORITY) {
-                for (int i = 0; i < SIDES; ++i)
-                    cast[i] = 0;
-                if (count)
-                    cast[best] = count;
-            }
+    // Simulation goal: average number of throws until Yahtzee
+    // https://en.wikipedia.org/wiki/Algorithms_for_calculating_variance#Welford%27s_online_algorithm
+    double mean = 0, M2 = 0, stddev;
 
-            // Roll remaining dice
-            for (int i = count; i < DICE; ++i)
-                ++cast[roll()];
-
-            // Find most common value
-            if (count < MAJORITY) {
-                for (int i = 0; i < SIDES; ++i)
-                    if (cast[i] > count)
-                        count = cast[(best = i)];
-            } else
-                count = cast[best];
+    // Run simulation until standard deviation is small enough
+    do {
+        // A single game doesn't change stddev much, repeat many to save sqrt calculations
+        for (int i = 0; i < BATCH; ++i) {
+            games++;
+            const int throws = play();
+            in3 += throws < 4;
+            // current estimate of the requested value
+            sum += throws;
+            const double estm = (double)sum / games;
+            // Update running mean and unscaled variance
+            const double delta = estm - mean;
+            mean += delta / games;
+            M2 += delta * (estm - mean);
         }
-        if (try < TRIES)
-            ++hist[try];
-    }
+        // Scale as population variance (= exact variance of given data)
+        // and take square root for new standard deviation
+        stddev = sqrt(M2 / games);
+    } while (stddev >= ERROR);
 
-    int mintry = 0, maxtry = TRIES - 1;
-    while (!hist[mintry])
-        ++mintry;
-    while (!hist[maxtry])
-        --maxtry;
-
-    printf("Tries,Count,Partial,Cumulative\n");
-    int maxval = 0, mode = 0;
-    double cumul = 0, median = 0, mean = 0;
-    for (int i = mintry; i <= maxtry; ++i) {
-        if (hist[i] > maxval)
-            maxval = hist[(mode = i)];
-        double prev = cumul, part = (double)hist[i] / GAMES;
-        cumul += part;
-        printf("%d,%d,%.8f,%.8f\n", i, hist[i], part, cumul);
-        if (prev < 0.5 && cumul >= 0.5)
-            median = i - 1 + (0.5 - prev) / (cumul - prev);
-        mean += part * i;
-    }
-    printf("\n");
-
-    printf("N_min    = %3d\n", mintry);
-    printf("N_max    = %3d\n", maxtry);
-    printf("N_mode   = %3d\n", mode);
-    printf("N_median = %6.2f (1st ord appr)\n", median);
-    printf("N_mean   = %6.2f\n\n", mean);
-    printf("Chance of Yahtzee in 1: %.4f%%\n", (double)hist[1] / PERCT);
-    printf("Chance of Yahtzee in 3: %.3f%%\n", (double)(hist[1] + hist[2] + hist[3]) / PERCT);
-
+    printf("Yahtzee takes %.2f throws on average in %"PRIu64" games.\n", mean, games);
+    printf("At most three throws in %.2f percent of games.\n", (double)in3 / games * 100);
+#ifdef TIMER
+    printf("Time: %.0f ms\n", stoptimer_ms());
+#endif
     return 0;
 }
