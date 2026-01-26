@@ -1,27 +1,25 @@
 #include <stdio.h>
-#include <stdint.h>
-#include <inttypes.h>
+#include <stdint.h>  // uint64_t, UINT64_C
 
-// Modular exponentiation
-// (modulus-1)^2 must not overflow in 'base' which is guaranteed
-// if modulus is 32-bit and base is 64-bit.
-uint64_t modpow(uint64_t base, uint64_t exponent, const uint64_t modulus)
+// Modular exponentiation: calculate remainder r = b^e mod m
+// Ref.: https://en.wikipedia.org/wiki/Modular_exponentiation
+uint32_t modpow(uint64_t base, uint64_t exponent, const uint64_t modulus)
 {
     if (modulus == 1)
-        return 0;
-    if (modulus > (UINT64_C(1) << 32))
-        return -1;
+        return 0;  // shortcut
+    if (modulus == 0 || modulus > (UINT64_C(1) << 32))
+        return -1;  // error (but also maximum unsigned value)
     uint64_t r = 1;
-    base %= modulus;  // base <= modulus-1
+    base %= modulus;  // now: base <= modulus-1
     for (; exponent; exponent >>= 1) {
-        if (exponent & 1)
-            r = r * base % modulus;
-        base = base * base % modulus;  // overflow if base >= 1<<32
+        if (exponent & 1)  // current LSB set?
+            r = (r * base) % modulus;  // parentheses for clarity
+        base = (base * base) % modulus;  // overflow if base >= 1<<32
     }
-    return r;  // 0 <= r < 1<<32
+    return r;  // 0 <= r < 1<<32 because modulus <= 1<<32
 }
 
 int main(void)
 {
-    printf("%"PRIu64"\n", modpow(4, 13, 497));
+    printf("%d\n", modpow(4, 13, 497));  // 445
 }
