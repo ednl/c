@@ -7,7 +7,7 @@
 // Does not rely on stdio.h, uses OS function 'write'.
 // If 'term' != 0, append it.
 // Sets global 'errno' if write fails.
-// Return: sumber of bytes successfully written >= 0.
+// Return: number of bytes successfully written >= 0.
 static ssize_t printint(int x, const char term)
 {
     char buf[sizeof x * 4], *end = buf + sizeof buf, *pc = end;
