@@ -1,17 +1,19 @@
 #include <stdio.h>
-#include <stdint.h>
-#include <inttypes.h>
-#include <math.h>
+#include <stdlib.h>    // rand
+#include <stdint.h>    // int64_t
+#include <inttypes.h>  // PRId64
+#include <math.h>      // exp2, fma
 #include "./startstoptimer.h"
 
-#define LOOP (1000 * 1000 * 1000)
-#define LOGPHI   0.4812118250596029
-#define LOGSQRT5 0.8047189562170503
+#define LOOP (1000 * 1000)
+static int8_t n[LOOP];
 
 // n'th Fibonacci number from golden ratio approximation
-static int64_t fib_fn(int n)
+#define L2PHI  0.6942419136306174  // log2((1+sqrt(5))/2)
+#define NL2S5 -1.1609640474436813  // -log2(sqrt(5))
+static int64_t fib_gr(int n)
 {
-    return llround(exp(LOGPHI * n - LOGSQRT5));
+    return llround(exp2(fma(n, L2PHI, NL2S5)));
 }
 
 // n'th Fibonacci number from iteration
@@ -27,18 +29,25 @@ static int64_t fib_it(int n)
 
 static double run(int64_t (*f)(int))
 {
-    volatile int n = 35;
     int64_t s = 0;
     starttimer();
     for (int i = 0; i < LOOP; ++i)
-        s += f(n);
-    const double t = stoptimer_ms();
+        s += f(n[i]);
+    const double t = stoptimer_us();
     printf("%"PRId64"\n", s);
     return t;
 }
 
-int main(void)
+int main(int argc, char *argv[])
 {
-    printf("fn: %.0f ms\n", run(fib_fn));
-    printf("it: %.0f ms\n", run(fib_it));
+    if (argc != 2 || (argv[1][0] != 'i' && argv[1][0] != 'g')) {
+        fprintf(stderr,
+            "Useage: %s [i,f]\n"
+            "  i = iterative method\n"
+            "  g = golden ratio approximation\n", argv[0]);
+        return 1;
+    }
+    for (int i = 0; i < LOOP; ++i)
+        n[i] = 26 + rand() % 10;
+    printf("fn: %.0f us\n", argv[1][0] == 'g' ? run(fib_gr) : run(fib_it));
 }
