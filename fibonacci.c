@@ -6,7 +6,22 @@
 #include "./startstoptimer.h"
 
 #define LOOP (1000 * 1000)
+#define RANGE   10
+#define MINBASE 0
+#define MAXBASE 59  // fib(69) is different for _gr and _it
+
 static int8_t n[LOOP];
+
+static void usage(const char *fname)
+{
+    fprintf(stderr,
+        "Usage: %s g|i <%d..%d>\n"
+        "  g = golden ratio approximation\n"
+        "  i = iterative method\n"
+        "  number %d..%d as base for fib(base+[0..%d])\n",
+        fname, MINBASE, MAXBASE, MINBASE, MAXBASE, RANGE - 1);
+    exit(1);
+}
 
 // n'th Fibonacci number from golden ratio approximation
 #define L2PHI  0.6942419136306174  // log2((1+sqrt(5))/2)
@@ -27,7 +42,7 @@ static int64_t fib_it(int n)
     return n ? b : a;
 }
 
-static double run(int64_t (*f)(int))
+static void run(int64_t (*f)(int))
 {
     int64_t s = 0;
     starttimer();
@@ -35,19 +50,24 @@ static double run(int64_t (*f)(int))
         s += f(n[i]);
     const double t = stoptimer_us();
     printf("%"PRId64"\n", s);
-    return t;
+    printf("Time: %.0f us\n", t);
 }
 
 int main(int argc, char *argv[])
 {
-    if (argc != 2 || (argv[1][0] != 'i' && argv[1][0] != 'g')) {
-        fprintf(stderr,
-            "Useage: %s [i,f]\n"
-            "  i = iterative method\n"
-            "  g = golden ratio approximation\n", argv[0]);
-        return 1;
-    }
+    if (argc != 3)
+        usage(argv[0]);
+
+    if ((argv[1][0] != 'g' && argv[1][0] != 'i'))
+        usage(argv[0]);
+
+    int base = atoi(argv[2]);
+    if (base < MINBASE || base > MAXBASE)
+        usage(argv[0]);
+
+    // Generate list of random n for calculating fib(n) where n = base + [0..9]
     for (int i = 0; i < LOOP; ++i)
-        n[i] = 26 + rand() % 10;
-    printf("fn: %.0f us\n", argv[1][0] == 'g' ? run(fib_gr) : run(fib_it));
+        n[i] = base + rand() % RANGE;
+
+    run(argv[1][0] == 'g' ? fib_gr : fib_it);
 }
