@@ -6,9 +6,8 @@
 #include "./startstoptimer.h"
 
 #define LOOP (1000 * 1000)
-#define RANGE   10
-#define MINBASE 0
-#define MAXBASE (72 - RANGE)  // fib(72) is different for _gr and _it
+#define NMIN 0
+#define NMAX 71  // fib(72) is different for _gr and _it
 
 static int8_t index[LOOP];
 
@@ -45,11 +44,12 @@ static void run(int64_t (*f)(int))
 static void usage(const char *fname)
 {
     fprintf(stderr,
-        "Usage: %s g|i <%d..%d>\n"
-        "  g = golden ratio approximation\n"
-        "  i = iterative method\n"
-        "  number %d..%d as base for fib(base+[0..%d])\n",
-        fname, MINBASE, MAXBASE, MINBASE, MAXBASE, RANGE - 1);
+        "Usage: %s g|i <Nmin> <Nmax>\n"
+        "  g: use golden ratio approximation\n"
+        "  i: use iterative method\n"
+        "  Nmin: N >= %d for range of random fib(N)\n"
+        "  Nmax: N <= %d for range of random fib(N)\n",
+        fname, NMIN, NMAX);
     exit(1);
 }
 
@@ -58,16 +58,18 @@ int main(int argc, char *argv[])
     // for (int n = 65; n < 80; ++n)
     //     printf("%d: %"PRId64" %"PRId64"\n", n, fib_gr(n), fib_it(n));
     char type = 0;
-    int base = -1;
-    if (argc != 3
+    int nmin = NMAX + 1, nmax = NMIN - 1;
+    if (argc != 4
         || (((type = argv[1][0]) != 'g' && type != 'i'))
-        || (base = atoi(argv[2])) < MINBASE
-        || base > MAXBASE)
+        || (nmin = atoi(argv[2])) < NMIN
+        || (nmax = atoi(argv[3])) > NMAX
+        || nmin > nmax)
         usage(argv[0]);
 
     // Generate list of random n for calculating fib(n) where n = base + [0..9]
+    const int range = nmax - nmin + 1;
     for (int i = 0; i < LOOP; ++i)
-        index[i] = base + rand() % RANGE;
+        index[i] = nmin + rand() % range;
 
     run(type == 'g' ? fib_gr : fib_it);
 }
