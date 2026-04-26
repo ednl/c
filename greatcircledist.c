@@ -68,7 +68,7 @@ static double great_circle_distance(const Segment a)
 int main(int argc, char *argv[])
 {
     if (argc != 5) {
-        fprintf(stderr, "Provide 4 arguments: lat1 lon1 lat2 lon2.\n");
+        fprintf(stderr, "Please provide 4 arguments: lat1 lon1 lat2 lon2\n");
         exit(E_NUMARG);
     }
 
@@ -77,19 +77,19 @@ int main(int argc, char *argv[])
         char *end;
         a.deg[i] = strtod(argv[j], &end);  // parse to double
         if ((size_t)(end - argv[j]) != strlen(argv[j])) {
-            fprintf(stderr, "Not a number: %s.\n", argv[j]);
+            fprintf(stderr, "Not a number: %s\n", argv[j]);
             exit(E_INVALID);
         }
         if (errno == ERANGE) {
-            fprintf(stderr, "Out of range: %s.\n", argv[j]);
+            fprintf(stderr, "Out of range: %s\n", argv[j]);
             exit(E_RANGE);
         }
         if ((i == 0 || i == 2) && (a.deg[i] < -90 || a.deg[i] > 90)) {
-            fprintf(stderr, "Latitude must be between -90 and +90: %s.\n", argv[j]);
+            fprintf(stderr, "Latitude must be between -90 and +90: %s\n", argv[j]);
             exit(E_LAT90);
         }
         if ((i == 1 || i == 3) && (a.deg[i] < -180 || a.deg[i] > 180)) {
-            fprintf(stderr, "Longitude must be between -180 and +180: %s.\n", argv[j]);
+            fprintf(stderr, "Longitude must be between -180 and +180: %s\n", argv[j]);
             exit(E_LON180);
         }
     }
