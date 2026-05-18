@@ -81,50 +81,56 @@ static inline void swap(int *const restrict a, int *const restrict b)
     *b = tmp;
 }
 
-// Successive calls give permutations in lexographic order of n index numbers.
+// Successive calls give permutations in lexographic order of len index numbers.
 // https://en.wikipedia.org/wiki/Permutation#Generation_in_lexicographic_order
 // NB: not thread-safe because permutations are stored in local static variable.
 // Returns pointer to first element of next permutation of n index numbers.
-int *permutations(const int n)
+int *permutations(const int len)
 {
     static int *index = NULL;
+    static int n = 0;
 
     // Wrong input or manual reset: reset & return
-    if (n < 1) {
+    if (len < 1) {
         free(index);
-        return index = NULL;
+        n = 0;
+        return (index = NULL);
     }
 
-    // Initialisation
-    if (!index) {
-        index = malloc(n * sizeof *index);
-        if (!index)
-            return NULL;
-        for (int i = 0; i < n; ++i)
-            index[i] = i;
+    // (Re-) initialisation on first call or if len changes
+    if (index == NULL || len != n) {
+        int *tmp = realloc(index, len * sizeof *tmp);
+        if (tmp) {
+            index = tmp;
+            n = len;
+            for (int i = 0; i < len; ++i)
+                index[i] = i;
+        }
         return index;
     }
 
-    // Find last consecutive elements in increasing order
-    int k = n - 2;
-    while (k >= 0 && index[k] >= index[k + 1])
-        --k;
+    // Find pivot_x: last element where next element is larger
+    int px = n - 2;
+    while (px >= 0 && index[px] >= index[px + 1])
+        --px;
 
     // If not found, this was the final permutation: reset & return
-    if (k < 0) {
+    if (px < 0) {
         free(index);
-        return index = NULL;
+        n = 0;
+        return (index = NULL);
     }
 
-    // Find last element larger than index[k] and swap them
-    int l = n - 1;
-    while (l > k && index[k] >= index[l])
-        --l;
-    swap(&index[k], &index[l]);
+    // Find pivot_y: last element larger than pivot_x and swap them
+    int py = n - 1;
+    while (index[px] >= index[py])
+        --py;  // py will be at least px+1 because pivot_x < pivot_x+1
+    swap(&index[px], &index[py]);
 
-    // Reverse sequence after index[k] and return permutation
-    int i = k + 1, j = n - 1;
-    while (i < j)
-        swap(&index[i++], &index[j--]);
+    // Reverse suffix = sequence after pivot_x
+    for (int l = px + 1, r = n - 1; l < r; ++l, --r)
+        swap(&index[l], &index[r]);
+
+    // Return next permutation
     return index;
 }
