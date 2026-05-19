@@ -20,8 +20,7 @@ extern int *permutations(const int len);
 // https://en.wikipedia.org/wiki/Steinhaus–Johnson–Trotter_algorithm
 //   with improvement by Shimon Even, as implemented by:
 //   https://github.com/steppi/adeft/blob/master/src/adeft/score/permutations.pyx
-// Second half of permutations are lexically reversed from first half:
-//   perm(i) = reverse(perm(n!/2 + i)) for i=0..(n!/2)-1
+// Permutations in de second half are lexically reversed from those in the first half.
 // NB: not thread-safe because permutation and state are stored in local static variables.
 // Returns pointer to first element of next permutation of len index numbers.
 // Returns NULL (and memory is freed) when all permutations have been visited.
