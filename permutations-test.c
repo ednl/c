@@ -9,7 +9,8 @@ int main(void)
     const int n = 13;
     int *a = NULL;
     uint64_t count = 0;
-    while ((a = permutations(n))) {
+    // while ((a = permutations(n))) {
+    while ((a = plainchanges(n))) {
         ++count;
         // printf("%3d:", ++count);
         // for (int i = 0; i < n; ++i)

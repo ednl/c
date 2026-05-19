@@ -135,3 +135,105 @@ int *permutations(const int len)
     // Return next permutation
     return index;
 }
+
+// Successive calls give permutations in "plain changes" order of len index numbers.
+// https://en.wikipedia.org/wiki/Steinhaus–Johnson–Trotter_algorithm
+// with improvement by Shimon Even, as implemented by:
+// https://github.com/steppi/adeft/blob/master/src/adeft/score/permutations.pyx
+// Second half of permutations are lexically reversed from first half:
+//   perm(i) = reverse(perm(n!/2 + i)) for i=0..(n!/2)-1
+// NB: not thread-safe because permutation and state are stored in local static variables.
+// Returns pointer to first element of next permutation of n index numbers.
+// Returns NULL (and memory is freed) when all permutations have been visited.
+// Call as plainchanges(0) to reset and free memory.
+int *plainchanges(const int len)
+{
+    static int *perm = NULL;  // permutation of index numbers 0..len-1
+    static int *pos = NULL;   // inverse permutation (position of values)
+    static int *dir = NULL;   // which way to move each value: -1=left, +1=right
+    static int *next = NULL;  // state used to calc next move value
+    static int curlen = 0;    // remember len for consistency/reset
+    static int max = 0;       // max = len - 1
+    static int move = 0;      // value to be moved
+
+    // Wrong input or manual reset: reset & return NULL
+    if (len < 1)
+        goto combperm_plainchanges_reset;
+
+    // (Re-) initialisation on first call, or if len changes
+    if (len != curlen) {
+        perm = realloc(perm, len * sizeof (int));
+        pos  = realloc(pos , len * sizeof (int));
+        dir  = realloc(dir , len * sizeof (int));
+        next = realloc(next, len * sizeof (int));
+        if (!perm || !pos || !dir || !next)
+            goto combperm_plainchanges_reset;
+        for (int i = 0; i < len; ++i) {
+            perm[i] = pos[i] = i;
+            dir[i] = next[i] = -1;
+        }
+        curlen = len;
+        move = max = len - 1;
+        return perm;
+    }
+
+    // End condition: if move is zero, next permutation
+    // would be ordered array, same as first permutation
+    if (!move)
+        goto combperm_plainchanges_reset;
+
+    // Step: look at neighbour left or right
+    const int xi = pos[move];
+    const int yi = xi + dir[move];
+    const int zi = yi + dir[move];
+
+    // Swap but remember replaced value for new pos index
+    const int tmp = perm[yi];
+    perm[yi] = move;
+    perm[xi] = tmp;
+
+    // Re-index inverse permutation
+    pos[tmp ] = xi;
+    pos[move] = yi;
+
+    // Check boundary
+    if (zi == -1 || zi == curlen || perm[zi] > move) {
+        // final step in current direction
+        dir[move] = -dir[move];
+        if (move == max) {
+            // final step and move is max
+            if (next[max] < 0) {
+                move = max - 1;
+                if (-next[max] != max)
+                    next[max - 1] = next[max];
+            } else
+                move = next[max] - 1;
+        } else {
+            // final step and move is not max
+            next[max] = -(move + 2);
+            if (next[move] > 0)
+                next[move + 1] = next[move];
+            else {
+                next[move + 1] = move;
+                if (-next[move] != move)
+                    next[move - 1] = next[move];
+            }
+            move = max;
+        }
+    } else if (move != max) {
+        // not final step and move is not max
+        next[max] = -(move + 1);
+        move = max;
+    }
+
+    // Return next permutation
+    return perm;
+
+combperm_plainchanges_reset:
+    free(perm); perm = NULL;
+    free(pos ); pos  = NULL;
+    free(dir ); dir  = NULL;
+    free(next); next = NULL;
+    curlen = move = max = 0;
+    return NULL;
+}
