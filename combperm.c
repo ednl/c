@@ -84,8 +84,8 @@ static inline void swap(int *const restrict a, int *const restrict b)
 // Successive calls give permutations in lexicographic order of len index numbers.
 // https://en.wikipedia.org/wiki/Permutation#Generation_in_lexicographic_order
 // NB: not thread-safe because permutations are stored in local static variable.
-// Returns pointer to first element of next permutation of n index numbers.
-// Call as permutations(0) to reset and free memory.
+// Returns pointer to first element of next permutation of len index numbers.
+// Call as permutations(0) to manually reset and free memory.
 int *permutations(const int len)
 {
     static int *index = NULL;
@@ -138,14 +138,14 @@ int *permutations(const int len)
 
 // Successive calls give permutations in "plain changes" order of len index numbers.
 // https://en.wikipedia.org/wiki/Steinhaus–Johnson–Trotter_algorithm
-// with improvement by Shimon Even, as implemented by:
-// https://github.com/steppi/adeft/blob/master/src/adeft/score/permutations.pyx
+//   with improvement by Shimon Even, as implemented by:
+//   https://github.com/steppi/adeft/blob/master/src/adeft/score/permutations.pyx
 // Second half of permutations are lexically reversed from first half:
 //   perm(i) = reverse(perm(n!/2 + i)) for i=0..(n!/2)-1
 // NB: not thread-safe because permutation and state are stored in local static variables.
-// Returns pointer to first element of next permutation of n index numbers.
+// Returns pointer to first element of next permutation of len index numbers.
 // Returns NULL (and memory is freed) when all permutations have been visited.
-// Call as plainchanges(0) to reset and free memory.
+// Call as plainchanges(0) to manually reset and free memory.
 int *plainchanges(const int len)
 {
     static int *perm = NULL;  // permutation of index numbers 0..len-1
@@ -156,7 +156,7 @@ int *plainchanges(const int len)
     static int max = 0;       // max = len - 1
     static int move = 0;      // value to be moved
 
-    // Wrong input or manual reset: reset & return NULL
+    // Wrong input or manual reset: free memory & return NULL
     if (len < 1)
         goto combperm_plainchanges_reset;
 
