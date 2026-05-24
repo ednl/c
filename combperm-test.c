@@ -30,10 +30,10 @@
 //
 //  M4 | count | lexic | plain |
 // ----+-------+-------+-------+
-//  10 |     1 |     8 |     7 |
-//  11 |     9 |    96 |    77 |
-//  12 |   109 |  1165 |   907 |
-//  13 |  1580 | 15257 | 11100 |
+//  10 |     1 |     8 |     6 |
+//  11 |     9 |    96 |    73 |
+//  12 |   109 |  1165 |   894 |
+//  13 |  1580 | 15257 | 11676 |
 
 #include <stdio.h>
 #include <stdlib.h>    // atoi
@@ -83,4 +83,5 @@ int main(int argc, char *argv[])
     const double t = stoptimer_ms();
     printf("Count: %"PRIu64" (%d! = %"PRIu64")\n", count, n, fac);
     printf("Time: %.0f ms\n", t);
+    plainchanges(0);  // free mem
 }

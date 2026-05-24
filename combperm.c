@@ -8,7 +8,8 @@
  * https://mastodon.social/@ednl
  */
 
-#include <stdlib.h>  // malloc, free
+#include <stdlib.h>  // malloc, realloc, free
+#include <string.h>  // memcpy
 #include "combperm.h"
 
 // Successive calls give combinations of k indices from a set of n.
@@ -81,105 +82,121 @@ static inline void swap(int *const restrict a, int *const restrict b)
     *b = tmp;
 }
 
-// Successive calls give permutations in lexicographic order of len index numbers.
-// https://en.wikipedia.org/wiki/Permutation#Generation_in_lexicographic_order
-// NB: not thread-safe because permutations are stored in local static variable.
-// Returns pointer to first element of next permutation of len index numbers.
-// Call as permutations(0) to manually reset and free memory.
-int *permutations(const int len)
+// Successive calls give permutations in lexicographic order of 'count' index numbers.
+// Ref.: https://en.wikipedia.org/wiki/Permutation#Generation_in_lexicographic_order
+// Returns pointer to first element of next permutation of 'count' index numbers.
+// Returns NULL (and memory is freed) when all permutations have been visited.
+//   Set count<=0 to free memory.
+//   NB: not thread-safe because permutation and state
+//       are stored in local static variables.
+int *permutations(const int count)
 {
     static int *index = NULL;
-    static int n = 0;
+    static int len = 0;
 
     // Wrong input or manual reset: reset & return
-    if (len < 1) {
+    if (count < 1) {
         free(index);
-        n = 0;
+        len = 0;
         return (index = NULL);
     }
 
-    // (Re-) initialisation on first call or if len changes
-    if (index == NULL || len != n) {
-        int *tmp = realloc(index, len * sizeof *tmp);
+    // (Re-) initialisation on first call or if count changes
+    if (index == NULL || count != len) {
+        int *tmp = realloc(index, count * sizeof *tmp);
         if (tmp) {
             index = tmp;
-            n = len;
-            for (int i = 0; i < len; ++i)
+            len = count;
+            for (int i = 0; i < count; ++i)
                 index[i] = i;
         }
         return index;
     }
 
     // Find pivot_x: last element where next element is larger
-    int px = n - 2;
+    int px = len - 2;
     while (px >= 0 && index[px] >= index[px + 1])
         --px;
 
     // If not found, this was the final permutation: reset & return
     if (px < 0) {
         free(index);
-        n = 0;
+        len = 0;
         return (index = NULL);
     }
 
     // Find pivot_y: last element larger than pivot_x and swap them
-    int py = n - 1;
+    int py = len - 1;
     while (index[px] >= index[py])
         --py;  // py will be at least px+1 because pivot_x < pivot_x+1
     swap(&index[px], &index[py]);
 
     // Reverse suffix = sequence after pivot_x
-    for (int l = px + 1, r = n - 1; l < r; ++l, --r)
+    for (int l = px + 1, r = len - 1; l < r; ++l, --r)
         swap(&index[l], &index[r]);
 
     // Return next permutation
     return index;
 }
 
-// Successive calls give permutations in "plain changes" order of len index numbers.
-// https://en.wikipedia.org/wiki/Steinhaus–Johnson–Trotter_algorithm
-//   with improvement by Shimon Even, as implemented by:
-//   https://github.com/steppi/adeft/blob/master/src/adeft/score/permutations.pyx
-// Permutations in de second half are lexically reversed from those in the first half.
-// NB: not thread-safe because permutation and state are stored in local static variables.
-// Returns pointer to first element of next permutation of len index numbers.
-// Returns NULL (and memory is freed) when all permutations have been visited.
-// Call as plainchanges(0) to manually reset and free memory.
-int *plainchanges(const int len)
+// Successive calls give permutations in "plain changes" order of 'count' index numbers.
+// Permutations in the second half are lexically reversed from those in the first half.
+// Ref.: https://en.wikipedia.org/wiki/Steinhaus–Johnson–Trotter_algorithm
+//       with improvement by Shimon Even as implemented by:
+//       https://github.com/steppi/adeft/blob/master/src/adeft/score/permutations.pyx
+// Returns pointer to first element of next permutation of 'count' index numbers.
+// Returns NULL (but memory NOT freed) when all permutations have been visited.
+//   Set count<=0 to free memory.
+//   NB: not thread-safe because permutation and state
+//       are stored in local static variables.
+int *plainchanges(const int count)
 {
-    static int *perm = NULL;  // permutation of index numbers 0..len-1
-    static int *pos = NULL;   // inverse permutation (position of values)
-    static int *dir = NULL;   // which way to move each value: -1=left, +1=right
+    static int *mem = NULL;   // memory arena for 4 arrays
+    static int cap  = 0;      // maximum array capacity
+    static int len  = 0;      // current array size
+    static int last = 0;      // last = len - 1
+    static int move = 0;      // value (not index) to be moved left or right
+    // Derivative variables (mem divided into 4 chunks)
+    static int *perm = NULL;  // permutation of index numbers 0..count-1
+    static int *dir  = NULL;  // which way to move each value: -1=left, +1=right
+    static int *pos  = NULL;  // inverse permutation (position of values)
     static int *next = NULL;  // state used to calc next move value
-    static int curlen = 0;    // remember len for consistency/reset
-    static int max = 0;       // max = len - 1
-    static int move = 0;      // value to be moved
 
     // Wrong input or manual reset: free memory & return NULL
-    if (len < 1)
-        goto combperm_plainchanges_reset;
+    if (count < 1)
+        goto combperm_plainchanges_free;  // also reset
 
-    // (Re-) initialisation on first call, or if len changes
-    if (len != curlen) {
-        perm = realloc(perm, len * sizeof (int));
-        pos  = realloc(pos , len * sizeof (int));
-        dir  = realloc(dir , len * sizeof (int));
-        next = realloc(next, len * sizeof (int));
-        if (!perm || !pos || !dir || !next)
-            goto combperm_plainchanges_reset;
-        for (int i = 0; i < len; ++i) {
-            perm[i] = pos[i] = i;
-            dir[i] = next[i] = -1;
+    // (Re-) initialisation on first call, or if count changes
+    if (count != len) {
+        if (count > cap) {  // new larger capacity, or init?
+            int *tmp = realloc(mem, 4 * count * sizeof (int));  // 4x = perm+dir+pos+next
+            if (tmp == NULL)  // memory allocation failed?
+                goto combperm_plainchanges_free;  // also reset
+            mem = tmp;
+            cap = count;
         }
-        curlen = len;
-        move = max = len - 1;
+        // Divide mem into 4 chunks of size count
+        perm = mem + count * 0;
+        dir  = mem + count * 1;
+        pos  = mem + count * 2;
+        next = mem + count * 3;
+        // Initialise arrays
+        for (int i = 0; i < count; ++i) {
+            perm[i] = i;
+            dir[i] = -1;
+        }
+        // Copy init values: pos=perm, next=dir
+        memcpy(pos, perm, 2 * count * sizeof (int));
+        len = count;
+        last = move = count - 1;
         return perm;
     }
 
-    // End condition: if move is zero, next permutation
-    // would be ordered array, same as first permutation
+    // End condition: if move is zero, next permutation would be
+    // same as first permutation (= ordered array)
+    // Separate check from count<1 to allow count==1 and save reallocation
     if (!move)
-        goto combperm_plainchanges_reset;
+        goto combperm_plainchanges_reset;  // does not free memory
 
     // Step: look at neighbour left or right
     const int xi = pos[move];
@@ -196,20 +213,20 @@ int *plainchanges(const int len)
     pos[move] = yi;
 
     // Check boundary
-    if (zi == -1 || zi == curlen || perm[zi] > move) {
-        // final step in current direction
+    if (zi == -1 || zi == len || perm[zi] > move) {
+        // took final step in current direction
         dir[move] = -dir[move];
-        if (move == max) {
-            // final step and move is max
-            if (next[max] < 0) {
-                move = max - 1;
-                if (-next[max] != max)
-                    next[max - 1] = next[max];
+        if (move == last) {
+            // took final step and move is last
+            if (next[last] < 0) {
+                move = last - 1;
+                if (-next[last] != last)
+                    next[last - 1] = next[last];
             } else
-                move = next[max] - 1;
+                move = next[last] - 1;
         } else {
-            // final step and move is not max
-            next[max] = -(move + 2);
+            // took final step and move is not last
+            next[last] = -(move + 2);
             if (next[move] > 0)
                 next[move + 1] = next[move];
             else {
@@ -217,22 +234,23 @@ int *plainchanges(const int len)
                 if (-next[move] != move)
                     next[move - 1] = next[move];
             }
-            move = max;
+            move = last;
         }
-    } else if (move != max) {
-        // not final step and move is not max
-        next[max] = -(move + 1);
-        move = max;
+    } else if (move != last) {
+        // not final step and move is not last
+        next[last] = -(move + 1);
+        move = last;
     }
 
     // Return next permutation
     return perm;
 
+combperm_plainchanges_free:
+    free(mem);
+    mem = NULL;
+    cap = 0;
 combperm_plainchanges_reset:
-    free(perm); perm = NULL;
-    free(pos ); pos  = NULL;
-    free(dir ); dir  = NULL;
-    free(next); next = NULL;
-    curlen = move = max = 0;
+    perm = dir = pos = next = NULL;
+    len = last = move = 0;
     return NULL;
 }
