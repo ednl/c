@@ -1,8 +1,6 @@
 /**
+ * COMBINATIONS AND PERMUTATIONS
  * Freeware. No pull requests accepted.
- * See combinations-test.c and permutations-test.c
- * in this repo for an example program.
- *
  * Made by: E. Dronkert, Utrecht NL, May 2024.
  * https://github.com/ednl
  * https://mastodon.social/@ednl

@@ -1,3 +1,11 @@
+/**
+ * COMBINATIONS AND PERMUTATIONS
+ * Freeware. No pull requests accepted.
+ * Made by: E. Dronkert, Utrecht NL, May 2024.
+ * https://github.com/ednl
+ * https://mastodon.social/@ednl
+ */
+
 #ifndef COMBPERM_H
 #define COMBPERM_H
 
