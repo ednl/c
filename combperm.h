@@ -9,6 +9,8 @@
 #ifndef COMBPERM_H
 #define COMBPERM_H
 
+typedef struct permutctx PermutCtx;
+
 // Successive calls give combinations of k indices from a set of n.
 // Adapted from Knuth 4A, §7.2.1.3, algorithm T.
 // Returns pointer to array of int, index 0..k-1.

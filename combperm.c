@@ -80,6 +80,11 @@ static inline void swap(int *const restrict a, int *const restrict b)
     *b = tmp;
 }
 
+struct permutctx {
+    int *mem, *dir, *pos, *next;
+    int len, cap, last, move;
+};
+
 // Successive calls give permutations in lexicographic order of 'count' index numbers.
 // Ref.: https://en.wikipedia.org/wiki/Permutation#Generation_in_lexicographic_order
 // Returns pointer to first element of next permutation of 'count' index numbers.
