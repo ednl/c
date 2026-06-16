@@ -18,10 +18,10 @@
 #include <string.h>  // memset
 
 // Adjust to taste
-#define DIGITS  32  // min: 2
-#define MINBASE 2   // min: 2
-#define MAXBASE 36  // max: 36
-#define MINGAP  16  // min: 0
+#define DIGITS  32  // e.g. needs to be >=10 for maxnum=1023,base=2
+#define MINBASE 2
+#define MAXBASE 36
+#define MINGAP  9
 #define MAXGAP  99
 #define MAXNUM  999
 
