@@ -1,16 +1,35 @@
-#include <stdio.h>
-#include <string.h>
+/**
+ * Numberphile: Palindrome Ages
+ * https://www.youtube.com/watch?v=fwLsCgibGw4
+ * https://www.youtube.com/watch?v=bIbTfdbQaSE
+ * with Kat Philips and Brady Haran
+ *
+ * Example from the first video: Kat's mother was 62 when
+ * Kat was 26. The two combined are a palindrome: 6226.
+ *
+ * Code by E. Dronkert, Utrecht, NL
+ * https://github.com/ednl/c/blob/main/palindrome-ages.c
+ * https://mu.social/profile/ee1.nl
+ * https://mastodon.social/@ednl
+ * https://ee1.nl
+ */
 
-#define DIGITS  32
-#define MINBASE 2
-#define MAXBASE 36
-#define MINGAP  16
+#include <stdio.h>
+#include <string.h>  // memset
+
+// Adjust to taste
+#define DIGITS  32  // min: 2
+#define MINBASE 2   // min: 2
+#define MAXBASE 36  // max: 36
+#define MINGAP  16  // min: 0
 #define MAXGAP  99
 #define MAXNUM  999
 
 static int num[DIGITS];  // number
 static int mun[DIGITS];  // reverse
 
+// Store value in digit array
+// return: number of digits (0 if overflow)
 static int set(int *a, const int base, int x)
 {
     memset(a, 0, DIGITS * sizeof *a);
@@ -22,6 +41,7 @@ static int set(int *a, const int base, int x)
     return x ? 0 : k;
 }
 
+// Retrieve value from digit array
 // k must be 1..DIGITS
 static int get(const int *a, const int base, const int k)
 {
@@ -31,12 +51,16 @@ static int get(const int *a, const int base, const int k)
     return x;
 }
 
+// Reverse digits from array src to array dst
+// k: number of digits
 static void rev(int *restrict dst, const int *restrict src, const int k)
 {
     for (int i = 0, j = k - 1; i < k; )
         dst[i++] = src[j--];
 }
 
+// Increase number stored in array
+// Make sure that reverse is always smaller or equal
 static int inc(int *a, const int base, const int k)
 {
     int i = 0, j = k - 1;
@@ -49,6 +73,7 @@ static int inc(int *a, const int base, const int k)
     return DIGITS;
 }
 
+// Print number from array
 static void show(const int *a, const int k)
 {
     static const char *digit = "0123456789abcdefghijklmnopqrstuvwxyz";
@@ -58,6 +83,8 @@ static void show(const int *a, const int k)
 
 int main(void)
 {
+    fprintf(stderr, "Gap Age1 Age2 (Base) Palindrome\n");
+    fprintf(stderr, "--- ---- ---- ------ --------------------\n");
     for (int base = MINBASE; base <= MAXBASE; ++base) {
         int n = base;
         int k = set(num, base, n);
@@ -66,7 +93,7 @@ int main(void)
             const int m = get(mun, base, k);
             const int gap = n - m;
             if (gap >= MINGAP && gap <= MAXGAP) {
-                printf("%2d %3d %3d (%2d) ", gap, n, m, base);
+                printf("%3d %4d %4d   (%2d) ", gap, n, m, base);
                 show(num, k);
                 show(mun, k);
                 putchar('\n');
