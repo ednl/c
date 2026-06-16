@@ -2,7 +2,7 @@
  * Numberphile: Palindrome Ages
  * https://www.youtube.com/watch?v=fwLsCgibGw4
  * https://www.youtube.com/watch?v=bIbTfdbQaSE
- * with Kat Philips and Brady Haran
+ * with Kat Phillips and Brady Haran
  *
  * Example from the first video: Kat's mother was 62 when
  * Kat was 26. The two combined are a palindrome: 6226.
