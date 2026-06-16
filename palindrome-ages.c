@@ -7,6 +7,15 @@
  * Example from the first video: Kat's mother was 62 when
  * Kat was 26. The two combined are a palindrome: 6226.
  *
+ * Compile:
+ *     cc -std=gnu17 -Wall -Wextra -pedantic -O3 -march=native -mtune=native palindrome-ages.c
+ * Select one specific gap from output:
+ *     ./a.out | grep -E '^\s*27' | sort
+ * Select one specific base from output:
+ *     ./a.out | grep -F '(16)' | sort
+ * Select one specific palindrome:
+ *     ./a.out | grep poop
+ *
  * Code by E. Dronkert, Utrecht, NL
  * https://github.com/ednl/c/blob/main/palindrome-ages.c
  * https://mu.social/profile/ee1.nl
@@ -20,7 +29,7 @@
 // Adjust to taste
 #define DIGITS  32  // e.g. needs to be >=10 for maxnum=1023,base=2
 #define MINBASE 2
-#define MAXBASE 36
+#define MAXBASE 36  // 10 numerical digits + 26 letters = 36 symbols
 #define MINGAP  9
 #define MAXGAP  99
 #define MAXNUM  999
