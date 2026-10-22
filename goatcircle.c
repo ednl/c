@@ -5,7 +5,7 @@
  * Problem:
  *   Grass circle has centre (0,0) and radius R, goat circle has centre (R,0)
  *   and radius 0 < r < 2R. Find smallest r accurate to two decimals where
- *   intersection of grass and goat circles is at least 50% of grass area.
+ *   intersection of grass and goat discs is at least 50% of grass area.
  *   Use Monte Carlo simulation to determine area of intersection.
  * Given:
  *   Grass circle: x^2 + y^2 = R^2
@@ -17,7 +17,7 @@
  *   cc -std=c17 -Wall -Wextra -pedantic -O3 -march=native -mtune=native goatcircle.c
  * Run:
  *   ./a.out
- * Output for R=1, PCT=50:
+ * Output for R=1, PCT=50, ERR=0.005:
  *   Goat eats 50% of grass at r=1.16 +/- 0.005
  */
 
@@ -53,7 +53,7 @@ static double probe(void)
     return drand48() * (R * 2) - R;
 }
 
-// Test if probe is inside intersection of circles
+// Test if probe is inside intersection of discs
 // parameter: r^2 - R^2
 static bool mc_test(const double r2_R2)
 {
